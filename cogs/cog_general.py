@@ -21,7 +21,7 @@ class General(commands.Cog):
     @commands.check(is_command_enabled)
     async def changelog(self, ctx: commands.Context):
         """Returns a link to the changelog, and displays most recent version."""
-        await ctx.send(embed=embedq('Read the latest changelog here: https://github.com/svioletg/lydian-discord-bot/blob/master/docs/changelog.md',
+        await ctx.send(embed=embedq('Read the latest changelog here: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md',
             f'This bot is currently running on v{VERSION}'))
 
     @commands.command(aliases=command_aliases('ping'))
@@ -42,7 +42,7 @@ class General(commands.Cog):
     @commands.check(is_command_enabled)
     async def faq(self, ctx: commands.Context):
         """Returns a link to Lydian's FAQ page."""
-        await ctx.send(embed=embedq('Lydian FAQ page: https://github.com/svioletg/lydian-discord-bot/blob/master/docs/faq.md'))
+        await ctx.send(embed=embedq('Lydian FAQ page: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/faq.md'))
 
     @commands.command(aliases=command_aliases('issues'))
     @commands.check(is_command_enabled)

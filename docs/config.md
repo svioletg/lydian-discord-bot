@@ -1,6 +1,6 @@
-# viMusBot / Configuration
+# Lydian / Configuration
 
-viMusBot has many settings available to customize and configure your bot. To use them, create a `config.yml` file in the bot's directory. Here you'll enter any config "keys" that you wish to change, which will then override the default value for that option.
+Lydian has many settings available to customize and configure your bot. To use them, create a `config.yml` file in the bot's directory. Here you'll enter any config "keys" that you wish to change, which will then override the default value for that option.
 
 As an example, if you wanted to change the bot's prefix from the default `-` to `!`, you would write this into `config.yml`...
 
@@ -150,7 +150,7 @@ inactivity-timeout: 10
 
 ### `logging-options`
 
-> A key containing various options regarding how the bot will log its status out to the console. All of these options are only for customizing what you see in your command prompt or terminal — regardless of what you set here, everything will be saved in `vimusbot.log` for troubleshooting.
+> A key containing various options regarding how the bot will log its status out to the console. All of these options are only for customizing what you see in your command prompt or terminal — regardless of what you set here, everything will be saved in `lydian.log` for troubleshooting.
 
 ### `logging-options` → `console-log-level`
 
@@ -290,7 +290,7 @@ prefixes:
 
 ### `public`
 
-> Starts the bot in "public" mode if set to true, or "developer" mode if set to false. Developer mode will make the bot use the [developer prefix](#prefixes), and will enable developer-only [console commands](https://github.com/svioletg/viMusBot/blob/master/docs/console.md).
+> Starts the bot in "public" mode if set to true, or "developer" mode if set to false. Developer mode will make the bot use the [developer prefix](#prefixes), and will enable developer-only [console commands](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/console.md).
 
 **Valid options:** `true` or `false`
 

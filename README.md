@@ -2,7 +2,7 @@
 
 ## You are on the `dev` branch. Switch to the `master` branch here: https://github.com/svioletg/lydian-discord-bot/tree/master
 
-Full changelog: [changelog.md](https://github.com/svioletg/lydian-discord-bot/blob/master/docs/changelog.md)
+Full changelog: [changelog.md](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md)
 
 See progress on bug fixes and new features here: [Lydian Taskboard](https://github.com/users/svioletg/projects/3/views/1)
 
@@ -143,10 +143,10 @@ First is the current date (YY-MM-DD) and time (HH:MM:SS), followed by the file t
 
 Extra pages of information are stored inside this repository's `docs` directory. It currently contains the following:
 
-[Changelog](https://github.com/svioletg/lydian-discord-bot/blob/master/docs/changelog.md)
+[Changelog](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md)
 
-[FAQ](https://github.com/svioletg/lydian-discord-bot/blob/master/docs/faq.md)
+[FAQ](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/faq.md)
 
-[Using `config.yml` for configuration & customization](https://github.com/svioletg/lydian-discord-bot/blob/master/docs/config.md)
+[Using `config.yml` for configuration & customization](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/config.md)
 
-[Using the Console](https://github.com/svioletg/lydian-discord-bot/blob/master/docs/console.md)
+[Using the Console](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/console.md)

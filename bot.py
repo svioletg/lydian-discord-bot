@@ -64,7 +64,7 @@ if __name__ == '__main__':
     else:
         log.info('You are up to date.')
 
-    log.info('Changelog: https://github.com/svioletg/lydian-discord-bot/blob/master/docs/changelog.md')
+    log.info('Changelog: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md')
 
 # Clear out downloaded files
 log.info('Removing previously downloaded media files...')
