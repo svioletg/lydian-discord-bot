@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     # Check for an outdated version
     if current < latest_release.version:
-        log.warning('### There is a new release available: %s', {latest_release.tag})
+        log.warning('### There is a new release available: %s', latest_release.tag)
         if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
             print(f'\n{important_notes}\n')
         log.warning('### Use "update.py" or "update.bat" to update.')

@@ -61,8 +61,8 @@ class Release:
         return tuple(map(int, version))
 
 def get_latest_release() -> Release:
-    """Retrieves the latest release on the viMusBot repository and stores it along with the detected local version."""
-    return Release.from_url('https://api.github.com/repos/svioletg/viMusBot/releases/latest')
+    """Retrieves the latest release on the Lydian repository and stores it along with the detected local version."""
+    return Release.from_url('https://api.github.com/repos/svioletg/lydian-discord-bot/releases/latest')
 
 def main():
     print('Checking...')
@@ -89,7 +89,7 @@ def main():
         print('Exiting.')
         return
 
-    latest_archive = Path(f'viMusBot-{latest.tag}.zip')
+    latest_archive = Path(f'lydian-discord-bot-{latest.tag}.zip')
 
     print('Retrieving: ' + latest.zip)
     urllib.request.urlretrieve(latest.zip, latest_archive)

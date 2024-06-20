@@ -21,7 +21,7 @@ CONFIG_FILEPATHS: dict[str, str] = {
 
 if not Path(CONFIG_FILEPATHS['default']).is_file():
     print('config_default.yml not found; downloading the latest version...')
-    urllib.request.urlretrieve('https://raw.githubusercontent.com/svioletg/viMusBot/master/config_default.yml',
+    urllib.request.urlretrieve('https://raw.githubusercontent.com/svioletg/lydian-discord-bot/main/config_default.yml',
         Path(CONFIG_FILEPATHS['default']))
 
 if not Path(CONFIG_FILEPATHS['user']).is_file():
