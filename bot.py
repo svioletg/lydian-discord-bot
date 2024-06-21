@@ -47,24 +47,31 @@ log.info('Lydian version: %s', VERSION)
 
 # Check for updates
 if __name__ == '__main__':
-    log.info('Running on version %s; checking for updates...', VERSION)
+    def check_for_updates():
+        log.info('Running on version %s; checking for updates...', VERSION)
 
-    if VERSION.startswith('dev.'):
-        log.warning('You are running a development version.')
+        if VERSION.startswith('dev.'):
+            log.warning('You are running a development version.')
 
-    latest_release = updating.get_latest_release()
-    current = updating.Release.get_version_tuple(VERSION)
+        latest_release = updating.get_latest_release()
+        if not latest_release:
+            log.warning('Could not retrieve latest release.')
+            return
+        current = updating.Release.get_version_tuple(VERSION)
 
-    # Check for an outdated version
-    if current < latest_release.version:
-        log.warning('### There is a new release available: %s', latest_release.tag)
-        if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
-            print(f'\n{important_notes}\n')
-        log.warning('### Use "update.py" or "update.bat" to update.')
-    else:
-        log.info('You are up to date.')
+        # Check for an outdated version
+        if current < latest_release.version:
+            log.warning('### There is a new release available: %s', latest_release.tag)
+            if latest_release.is_prerelease:
+                log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+            if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
+                print(f'\n{important_notes}\n')
+            log.warning('### Use "update.py" or "update.bat" to update.')
+        else:
+            log.info('You are up to date.')
 
-    log.info('Changelog: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md')
+        log.info('Changelog: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md')
+    check_for_updates()
 
 # Clear out downloaded files
 log.info('Removing previously downloaded media files...')
