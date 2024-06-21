@@ -46,7 +46,7 @@ class Palette:
         self.navy        = Style.DIM    + Fore.BLUE
 
         # User-defined
-        self._user_defined = None # This is just used for the preview display
+        self._user_defined = None # This is just used to show a header in the preview
         self.timer = self.parse_color_config('timer')
         self.module = self.parse_color_config('module')
         self.function = self.parse_color_config('function')
@@ -89,6 +89,8 @@ class Palette:
         for k, v in vars(self).items():
             if k == '_user_defined':
                 print('\nCurrently set color options:')
+                continue
+            if not isinstance(v, str):
                 continue
             if isinstance(v, dict):
                 for k2, v2 in v.items():

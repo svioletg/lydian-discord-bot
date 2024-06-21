@@ -43,10 +43,12 @@ class Release:
         self.date: str = re.match(r"(\d{4}-\d{2}-\d{2})", response_json['published_at'])[0] # type: ignore
 
     @classmethod
-    def from_url(cls, github_url: str) -> Self:
+    def from_url(cls, github_url: str) -> Self | None:
         """Creates a `Release` from a GitHub API release URL."""
-        response = requests.get(github_url, timeout=5)
-        return cls(response.json())
+        response_json = requests.get(github_url, timeout=5).json()
+        if response_json['message'] == 'Not Found':
+            return None
+        return cls(response_json)
 
     @staticmethod
     def get_version_tuple(tag_string: str) -> tuple[int, ...]:
@@ -60,8 +62,9 @@ class Release:
             version.append(ascii_lowercase.index(version_ext[0]) + 1)
         return tuple(map(int, version))
 
-def get_latest_release() -> Release:
-    """Retrieves the latest release on the Lydian repository and stores it along with the detected local version."""
+def get_latest_release() -> Release | None:
+    """Retrieves the latest release on the Lydian repository and stores it along with the detected local version.
+    If no release could be found, returns `None`."""
     return Release.from_url('https://api.github.com/repos/svioletg/lydian-discord-bot/releases/latest')
 
 def main():
