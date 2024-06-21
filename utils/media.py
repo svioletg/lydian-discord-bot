@@ -177,9 +177,7 @@ class MediaInfo:
         """
         if isinstance(info, str):
             results = ytmusic.search(info, filter='songs') or ytmusic.search(info, filter='videos')
-            print(results[:3])
             info = results[0]
-            print(info)
         return cls(YOUTUBE, info, yt_info_origin='ytmusic')
 
     @classmethod
@@ -617,7 +615,6 @@ def search_ytmusic_text(query: str, max_results: int=1) -> dict[str, Any]:
         if not val[0]:
             continue
         category, cls = val
-        print(key, len(category), cls)
         results[key] = [cls.from_ytmusic(i) for n, i in enumerate(category) if n <= max_results]
 
     return results
