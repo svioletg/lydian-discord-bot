@@ -26,6 +26,7 @@ class EmojiStr:
     arrow_r: str = '➡️'
     arrow_d: str = '⬇️'
     arrow_l: str = '⬅️'
+    dice: str = '🎲'
     # Media
     play: str = '▶️'
     pause: str = '⏸️'

@@ -45,6 +45,8 @@ log.info('Logging for bot.py is now active.')
 log.info('Python version: %s', python_version())
 log.info('Lydian version: %s', VERSION)
 
+vc_ref: cog_voice.Voice
+
 # Check for updates
 if __name__ == '__main__':
     def check_for_updates():
@@ -161,44 +163,54 @@ asyncio_tasks: dict[str, asyncio.Task] = {}
 
 async def console_thread():
     """Handles console commands."""
+    def exception_message(e: Exception):
+        log.info('Error encountered in console thread.')
+        log.error(e)
+        if cfg.LOG_TRACEBACKS:
+            log.error('Full traceback to follow...\n\n%s', ''.join(traceback.format_exception(e)))
+
     log.info('Console is active.')
     while True:
-        try:
-            user_input: str = await aioconsole.ainput('')
-            user_input = user_input.lower().strip()
-            if user_input == '':
-                continue
-            match user_input:
-                case 'colors':
-                    plt.preview()
-                    print()
-                case 'stop':
+        user_input: str = await aioconsole.ainput('')
+        user_input = user_input.lower().strip()
+        if user_input == '':
+            continue
+        match user_input:
+            case 'colors':
+                plt.preview()
+                print()
+            case 'stop':
+                try:
                     log.info('Stopping the bot...')
                     log.debug('Leaving voice if connected...')
-                    # await voice.disconnect()
+                    if vc_ref.voice_client:
+                        await vc_ref.voice_client.disconnect()
                     log.debug('Cancelling bot task...')
                     asyncio_tasks['bot'].cancel()
                     try:
                         await asyncio_tasks['bot']
-                    except asyncio.exceptions.CancelledError:
-                        pass
+                    except asyncio.exceptions.CancelledError as e:
+                        print(e)
                     log.debug('Cancelling console task...')
                     asyncio_tasks['console'].cancel()
                     try:
                         await asyncio_tasks['console']
-                    except asyncio.exceptions.CancelledError:
-                        pass
+                    except asyncio.exceptions.CancelledError as e:
+                        print(e)
                     log.info('All tasks stopped. Exiting...')
-                case _:
-                    log.info('Unrecognized command "%s"', user_input)
-        except Exception as e:
-            log.info('Error encountered in console thread.')
-            log.error(e)
-            if cfg.LOG_TRACEBACKS:
-                log.error('Full traceback to follow...\n\n%s', ''.join(traceback.format_exception(e)))
+                except RuntimeError:
+                    pass
+                except Exception as e:
+                    exception_message(e)
+                finally:
+                    raise SystemExit(0)
+            case _:
+                log.info('Unrecognized command "%s"', user_input)
 
 async def bot_thread():
     """Async thread for the Discord bot."""
+    global vc_ref # Can't really do this without it being global; pylint: disable=global-statement
+
     log.info('Starting bot thread...')
     log.debug('Assigning bot logger to cogs...')
     cog_general.log = log
@@ -207,7 +219,7 @@ async def bot_thread():
         log.debug('Adding cog: General')
         await bot.add_cog(cog_general.General(bot))
         log.debug('Adding cog: Voice')
-        await bot.add_cog(cog_voice.Voice(bot))
+        await bot.add_cog(vc_ref := cog_voice.Voice(bot))
         log.info('Logging in with token, please wait for a "Ready!" message before using any commands...')
         await bot.start(token)
 

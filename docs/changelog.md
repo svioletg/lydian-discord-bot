@@ -94,15 +94,18 @@ Other
 - Changes in `requirements.txt`:
 
 ```diff
-+   ADDED: colorlog        == 6.8.2
++   ADDED: colorlog        == 6.8.2*
 + UPDATED: aioconsole      == 0.7.1
++ UPDATED: discord.py      == 2.4.0
 + UPDATED: python-benedict == 0.33.2
 + UPDATED: requests        == 2.32.2
 + UPDATED: spotipy         == 2.24.0
-+ UPDATED: yt_dlp          == 2024.5.27
-+ UPDATED: ytmusicapi      == 1.7.3
++ UPDATED: yt_dlp          == 2024.7.2
++ UPDATED: ytmusicapi      == 1.7.4
 - REMOVED: regex
 ```
+
+\**The version requirement for `colorlog` is actually [my fork](https://github.com/svioletg/python-colorlog) of the module, which just allows for directly using escape codes and not only relying on color name strings, so that how colors were handled previously in logs can be compatible.*
 
 - `envsetup.bat` now runs `py -3` instead of `py`, to make sure the latest version of Python is being used
 

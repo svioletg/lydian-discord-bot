@@ -310,7 +310,7 @@ class Voice(commands.Cog):
 
         self.media_queue.insert(destination - 1, origin_item := self.media_queue.pop(origin - 1))
         direction = 'up' if destination < origin else 'down'
-        await ctx.send(embed=embedq(EmojiStr.arrow_u if direction == 'up' else EmojiStr.arrow_d + f' Moved #{origin} ({origin_item.info.title}) ' +
+        await ctx.send(embed=embedq((EmojiStr.arrow_u if direction == 'up' else EmojiStr.arrow_d) + f' Moved #{origin} ({origin_item.info.title}) ' +
             f'{direction} to spot #{destination}.'))
 
     @commands.command(aliases=command_aliases('shuffle'))
@@ -346,7 +346,7 @@ class Voice(commands.Cog):
             else:
                 await ctx.send(embed=embedq(f'{EmojiStr.cancel} Invalid option; must be either "on" or "off"'))
                 return
-        await ctx.send(embed=embedq(f'Roulette mode is {'ON' if self.media_queue.roulette_mode else 'OFF'}.'))
+        await ctx.send(embed=embedq(f'{EmojiStr.dice} Roulette mode is {'ON' if self.media_queue.roulette_mode else 'OFF'}.'))
 
     @commands.command(aliases=command_aliases('remove'))
     @commands.check(is_command_enabled)

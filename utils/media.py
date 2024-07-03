@@ -81,13 +81,15 @@ class MediaInfo:
         self.thumbnail: str = ''
         self.album_name: str = ''
         self.release_year: str = ''
-        self.contents: list = []
+        self.contents: list[TrackInfo] = []
 
         if source == SPOTIFY:
             self.url            = cast(str, info['external_urls']['spotify'])
             self.title          = cast(str, info['name'])
             self.artist         = cast(str, benedict(self.info).get('artists[0].name', ''))
         elif source == SOUNDCLOUD:
+            print(info)
+            print(type(info))
             self.url            = cast(str, info.permalink_url)
             self.title          = cast(str, info.title)
             self.artist         = cast(str, info.user['username'])
@@ -547,7 +549,7 @@ def soundcloud_set(url: str) -> PlaylistInfo | AlbumInfo:
 
     # is_album IS a member of Playlist, but Pylint doesn't seem to know that
     is_album: bool = response.is_album # pylint: disable=no-member
-    return AlbumInfo(SOUNDCLOUD, response.tracks) if is_album else PlaylistInfo(SOUNDCLOUD, response.tracks)
+    return AlbumInfo(SOUNDCLOUD, response) if is_album else PlaylistInfo(SOUNDCLOUD, response)
 #endregion
 
 #region SPOTIFY
