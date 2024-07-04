@@ -123,7 +123,8 @@ class PlaylistLimitError(Exception):
 async def author_in_vc(ctx: commands.Context) -> bool:
     """Checks whether the command author is connected to a voice channel before allowing it to run.
 
-    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass."""
+    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass.
+    """
     command_author = cast(Member, ctx.author)
     if not command_author.voice:
         log.info('Command author not connected to voice, cancelling.')
@@ -142,7 +143,6 @@ async def author_in_vc(ctx: commands.Context) -> bool:
 
 class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
-
     def __init__(self, bot: commands.bot.Bot):
         self.bot = bot
         self.voice_client: Optional[VoiceClient] = None
@@ -294,7 +294,8 @@ class Voice(commands.Cog):
         """Moves the queue item located at `origin` to `destination`.
 
         @origin: Index of the queue item to be moved.
-        @destination: What spot the item should be moved to."""
+        @destination: What spot the item should be moved to.
+        """
         if self.media_queue == []:
             await ctx.send(embed=CommonMsg.queue_is_empty())
             return
@@ -411,7 +412,8 @@ class Voice(commands.Cog):
         """Toggles looping the current track. If no argument is given, looping will be turned on if its currently off, and vice versa.
         Alternatively, you can use "loop on" or "loop off" to toggle it explicitly.
 
-        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that."""
+        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that.
+        """
         if toggle in ['on', 'off']:
             self.media_queue.is_looping = {'on': True, 'off': False}[toggle]
             log.info('Looping changed to %s.', self.media_queue.is_looping)
