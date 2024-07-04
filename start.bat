@@ -1,5 +1,5 @@
-echo (.vmbvenv\scripts\python bot.py)
+@echo off
 
-.vmbvenv\scripts\python bot.py
+.lydienv\scripts\python bot.py
 
 pause

@@ -5,7 +5,7 @@ standardized results from various sources."""
 import json
 import logging
 import re
-from typing import Any, Callable, Literal, Optional, Self, TypedDict, cast
+from typing import Any, Literal, Optional, Self, TypedDict, cast
 
 # External imports
 import pytube
@@ -23,12 +23,9 @@ import utils.configuration as cfg
 from utils.miscutil import seconds_to_hms
 from utils.palette import Palette
 
-log = logging.getLogger('viMusBot')
+log = logging.getLogger('lydian')
 
 plt = Palette()
-
-# Function to communicate with the bot and send status messages, useful for long tasks
-bot_status_callback: Callable = lambda message: None
 
 #region DEFINE CLASSES
 
@@ -84,13 +81,15 @@ class MediaInfo:
         self.thumbnail: str = ''
         self.album_name: str = ''
         self.release_year: str = ''
-        self.contents: list = []
+        self.contents: list[TrackInfo] = []
 
         if source == SPOTIFY:
             self.url            = cast(str, info['external_urls']['spotify'])
             self.title          = cast(str, info['name'])
             self.artist         = cast(str, benedict(self.info).get('artists[0].name', ''))
         elif source == SOUNDCLOUD:
+            print(info)
+            print(type(info))
             self.url            = cast(str, info.permalink_url)
             self.title          = cast(str, info.title)
             self.artist         = cast(str, info.user['username'])
@@ -180,9 +179,7 @@ class MediaInfo:
         """
         if isinstance(info, str):
             results = ytmusic.search(info, filter='songs') or ytmusic.search(info, filter='videos')
-            print(results[:3])
             info = results[0]
-            print(info)
         return cls(YOUTUBE, info, yt_info_origin='ytmusic')
 
     @classmethod
@@ -250,7 +247,7 @@ class TrackInfo(MediaInfo):
                 self.length_seconds = int(self.info.get('duration_seconds') or self.info.get('lengthSeconds'))
                 self.album_name     = cast(str, benedict(self.info).get('album.name', ''))
             elif self.yt_info_origin == 'ytdl':
-                self.length_seconds = int(self.info.get('duration', None))
+                self.length_seconds = int(self.info.get('duration') or 0)
 
     @classmethod
     def from_spotify_url(cls, url: str) -> Self:
@@ -273,6 +270,7 @@ class AlbumInfo(MediaInfo):
             - `dict` from `yt_dlp.YoutubeDL.YoutubeDL.extract_info()`
         """
         MediaInfo.__init__(self, source, info, yt_info_origin)
+        self.is_album = True
         self.upc: str = ''
 
         if source == SPOTIFY:
@@ -303,6 +301,7 @@ class PlaylistInfo(MediaInfo):
     """Specific parsing for playlist data."""
     def __init__(self, source: MediaSource, info: Any, yt_info_origin: Optional[Literal['pytube', 'ytmusic', 'ytdl']] = None):
         MediaInfo.__init__(self, source, info, yt_info_origin)
+        self.is_playlist = True
 
         if source == SPOTIFY:
             self.thumbnail      = cast(str, self.info['images'][0]['url'])
@@ -321,39 +320,41 @@ class PlaylistInfo(MediaInfo):
         return cls(SPOTIFY, sp.playlist(url))
 
 def track_list_duration(track_list: list[TrackInfo]) -> int:
-
     """Return the sum of track lengths from a list of `TrackInfo` objects."""
     return int(sum(track.length_seconds for track in track_list))
 
 # Pylint warns about some return paths here returning None, but I can't find a situation where that would happen
 def get_group_contents(group_object: AlbumInfo | PlaylistInfo) -> list[TrackInfo]: # type: ignore
     """Retrieves a list of `TrackInfo` objects based on the URLs found witin an AlbumInfo or PlaylistInfo object."""
-    # TODO: This can take a while, maybe find a way to report status back to bot.py?
-    object_list: list[TrackInfo] = []
+    group_contents: list[TrackInfo] = []
     log.debug('Looking for MediaInfo group contents...')
     if group_object.source == SPOTIFY:
         track_list = cast(list[dict], group_object.info['tracks']['items'])
-        for n, track in enumerate(track_list):
-            log.debug('Getting track %s out of %s...', n + 1, len(track_list))
+        for track in track_list:
             try:
                 if isinstance(group_object, AlbumInfo):
-                    object_list.append(TrackInfo(SPOTIFY, cast(dict, track)))
-                    object_list[-1].thumbnail    = group_object.thumbnail
-                    object_list[-1].album_name   = group_object.album_name
-                    object_list[-1].release_year = group_object.release_year
+                    group_contents.append(TrackInfo(SPOTIFY, track))
+                    group_contents[-1].thumbnail    = group_object.thumbnail
+                    group_contents[-1].album_name   = group_object.album_name
+                    group_contents[-1].release_year = group_object.release_year
 
                 elif isinstance(group_object, PlaylistInfo):
-                    object_list.append(TrackInfo(SPOTIFY, cast(dict, track['track'])))
+                    group_contents.append(TrackInfo(SPOTIFY, cast(dict, track['track'])))
             except LocalFileError:
                 log.debug('Skipping local file: %s', track)
                 continue
-        return object_list
+        return group_contents
 
     if group_object.source == SOUNDCLOUD:
         track_list = group_object.info.tracks
         for track in track_list:
-            object_list.append(TrackInfo(SOUNDCLOUD, track))
-        return object_list
+            group_contents.append(TrackInfo(SOUNDCLOUD, track))
+            if isinstance(group_object, AlbumInfo):
+                group_contents[-1].artist      = group_object.artist
+                group_contents[-1].thumbnail    = group_object.thumbnail
+                group_contents[-1].album_name   = group_object.album_name
+                group_contents[-1].release_year = group_object.release_year
+        return group_contents
 
     if group_object.source == YOUTUBE:
         if group_object.yt_info_origin == 'ytmusic':
@@ -362,15 +363,19 @@ def get_group_contents(group_object: AlbumInfo | PlaylistInfo) -> list[TrackInfo
             track_list = group_object.info['entries']
         if group_object.yt_info_origin == 'pytube':
             raise ValueError('pytube origin incompatible with get_group_contents()')
-
         for track in track_list:
-            object_list.append(TrackInfo(YOUTUBE, track))
-        return object_list
+            group_contents.append(TrackInfo(YOUTUBE, track))
+            if isinstance(group_object, AlbumInfo):
+                group_contents[-1].artist       = group_object.artist
+                group_contents[-1].thumbnail    = group_contents[-1].thumbnail or group_object.thumbnail
+                group_contents[-1].album_name   = group_contents[-1].album_name or group_object.album_name
+                group_contents[-1].release_year = group_contents[-1].release_year or group_object.release_year
+        return group_contents
 
     if group_object.source == OTHER:
         track_list = group_object.info['entries']
-        object_list = [TrackInfo.from_other(track['url']) for track in track_list]
-        return object_list
+        group_contents = [TrackInfo.from_other(track['url']) for track in track_list]
+        return group_contents
 #endregion MEDIAINFO AND SUBCLASSES
 
 #endregion DEFINE CLASSES
@@ -394,6 +399,7 @@ ytdl_format_options = {
     'no_warnings': False,
     'default_search': 'auto',
     'extract_flat': True,
+    'max_filesize': cfg.MAX_FILE_SIZE * 1024 * 1024,
     'source_address': '0.0.0.0', # bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 
@@ -403,14 +409,18 @@ ytdl = YoutubeDL(ytdl_format_options)
 ytmusic = YTMusic()
 
 # Connect to spotify API
-with open('spotify_config.json', 'r', encoding='utf-8') as f:
-    scred = json.loads(f.read())['spotify']
-
-client_credentials_manager = SpotifyClientCredentials(
-    client_id = scred['client_id'],
-    client_secret = scred['client_secret']
-)
-sp = Spotify(client_credentials_manager = client_credentials_manager)
+# Turns out you don't actually need to provide a valid ID or secret, just give it a string
+# and everything works fine.
+try:
+    with open('spotify_config.json', 'r', encoding='utf-8') as f:
+        spotify_creds = json.load(f)['spotify']
+        sp = Spotify(client_credentials_manager=SpotifyClientCredentials(
+            client_id=spotify_creds['client_id'],
+            client_secret=spotify_creds['client_secret']
+        ))
+except FileNotFoundError:
+    log.warning('"spotify_config.json" not found, Spotify functionality will be unavailable.')
+    sp = None
 
 # Connect to soundcloud API
 sc = SoundcloudAPI()
@@ -542,7 +552,7 @@ def soundcloud_set(url: str) -> PlaylistInfo | AlbumInfo:
 
     # is_album IS a member of Playlist, but Pylint doesn't seem to know that
     is_album: bool = response.is_album # pylint: disable=no-member
-    return AlbumInfo(SOUNDCLOUD, response.tracks) if is_album else PlaylistInfo(SOUNDCLOUD, response.tracks)
+    return AlbumInfo(SOUNDCLOUD, response) if is_album else PlaylistInfo(SOUNDCLOUD, response)
 #endregion
 
 #region SPOTIFY
@@ -596,25 +606,19 @@ def analyze_spotify_track(url: str) -> tuple:
 #endregion
 
 #region YTMUSIC
-class YTMusicSearchResults(TypedDict):
-    """Contains correctly typed results for `search_ytmusic()`"""
-    songs:  Optional[list[TrackInfo]]
-    videos: Optional[list[TrackInfo]]
-    albums: Optional[list[AlbumInfo]]
-
-def search_ytmusic_text(query: str, max_results: int=1) -> YTMusicSearchResults:
+def search_ytmusic_text(query: str, max_results: int=1) -> dict[str, Any]:
     """Searches YTMusic with a plain-text query. Returns a dictionary containing the top "song", "video", and album results.
 
     @query: String to search with.
     @results: Maximum number of search results to return, per each category.
     """
-    # TODO: Albums don't seem to return thumbnails here
     songs, videos, albums = [ytmusic.search(query=query, limit=1, filter=category) for category in ['songs', 'videos', 'albums']]
 
-    results: YTMusicSearchResults = {'songs': None, 'videos': None, 'albums': None}
+    results: dict[str, Any] = {'songs': None, 'videos': None, 'albums': None}
 
     for key, val in {'songs': (songs, TrackInfo), 'videos': (videos, TrackInfo), 'albums': (albums, AlbumInfo)}.items():
-        if not val[0]: continue
+        if not val[0]:
+            continue
         category, cls = val
         results[key] = [cls.from_ytmusic(i) for n, i in enumerate(category) if n <= max_results]
 
@@ -629,10 +633,12 @@ def match_ytmusic_album(src_info: AlbumInfo, threshold: int=75) -> tuple[AlbumIn
     """
     title, artist, release_year = src_info.title, src_info.artist, src_info.release_year
     query = f'{title} {artist} {release_year}'
+    query_no_year = f'{title} {artist}'
 
     log.info('Finding a YTMusic album match...')
 
-    album_results = [AlbumInfo(YOUTUBE, result, 'ytmusic') for result in ytmusic.search(query=query, limit=1, filter='albums')[:5]]
+    album_results = [AlbumInfo(YOUTUBE, result, 'ytmusic') for result in ytmusic.search(query=query, limit=1, filter='albums')[:5]] \
+                    + [AlbumInfo(YOUTUBE, result, 'ytmusic') for result in ytmusic.search(query=query_no_year, limit=1, filter='albums')[:5]]
 
     for result in album_results:
         if (confidence := compare_media(src_info, result)[0]) >= threshold:
@@ -653,8 +659,7 @@ def match_ytmusic_track(src_info: TrackInfo) -> TrackInfo | list[TrackInfo]:
     if (not cfg.FORCE_MATCH_PROMPT) and src_info.isrc:
         log.info('Searching for ISRC: %s', src_info.isrc)
         # pytube is more accurate when searching with an ISRC
-        pytube_results = pytube.Search(src_info.isrc).results
-        if pytube_results:
+        if pytube_results := pytube.Search(src_info.isrc).results:
             isrc_matches: list[pytube.YouTube] = pytube_results
 
             log.debug('About to search through potential ISRC matches, of which there are %s. Reference title is: %s',
@@ -683,28 +688,18 @@ def match_ytmusic_track(src_info: TrackInfo) -> TrackInfo | list[TrackInfo]:
 
     log.info('Searching YTMusic for: %s', query)
     song_results, video_results = [
-        [TrackInfo(YOUTUBE, result, yt_info_origin='ytmusic') for result in ytmusic.search(query=query, limit=1, filter=filt)]\
+        [TrackInfo(YOUTUBE, result, yt_info_origin='ytmusic') for result in ytmusic.search(query=query, limit=1, filter=filt)] \
         for filt in ['songs', 'videos']
     ]
 
     # Remove videos over the specified duration limit
-    for song, video in zip(song_results, video_results):
-        if song.length_seconds > cfg.DURATION_LIMIT_SECONDS:
-            song_results.pop(song_results.index(song))
+    song_results = [song for song in song_results if song.length_seconds < cfg.DURATION_LIMIT_SECONDS]
+    video_results = [video for video in video_results if video.length_seconds < cfg.DURATION_LIMIT_SECONDS]
 
-        if video.length_seconds > cfg.DURATION_LIMIT_SECONDS:
-            video_results.pop(video_results.index(video))
-
-    track_choices: list[TrackInfo] = []
-
-    for result in song_results[:2]:
-        track_choices.append(result)
-
-    for result in video_results[:2]:
-        track_choices.append(result)
+    track_choices: list[TrackInfo] = song_results[:2] + video_results[:2]
 
     if cfg.FORCE_MATCH_PROMPT:
-        log.info('force-match-prompt is enabled, returning choices without checking for matches.')
+        log.warning('force-match-prompt is enabled.')
         return track_choices
 
     # Check for matches
@@ -729,8 +724,3 @@ def match_ytmusic_track(src_info: TrackInfo) -> TrackInfo | list[TrackInfo]:
     log.info('No confident matches were found. Returning the closest ones...')
     return track_choices
 #endregion YTMUSIC
-
-# Other
-def spyt(url: str) -> TrackInfo | list[TrackInfo]:
-    """Matches a Spotify URL with its closest match from YouTube or YTMusic"""
-    return match_ytmusic_track(TrackInfo.from_spotify_url(url))

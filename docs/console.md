@@ -1,4 +1,4 @@
-# viMusBot / Using the Console
+# Lydian / Using the Console
 
 Added in v1.9.0, the **console** lets you type and run commands into the terminal or window the bot is running in. Note that these "commands" are entirely separate from the "commands" you would use on Discord itself — most of them are just for getting some basic information, or for developer debugging usage. A few notes about using them:
 
@@ -23,33 +23,3 @@ Added in v1.9.0, the **console** lets you type and run commands into the termina
 *Parameters: N/A*
 
 Attempts to cancel the currently running bot & console threads, and exits the script.
-
-### (dev) (ctx) `test play <source> [flags]`
-
-> Tests the "play" Discord command with a variety of scenarios.
-
-*Parameters:*
-- `source`
-  - *Required*; The source of URL(s) to test
-  - Valid options are `any`, `mixed`, `youtube`, `spotify`, `bandcamp`, `soundcloud`
-    - `any` will choose a single source at random
-    - `mixed` will choose multiple random sources (if the `multiple` flag is not used, this has the same effect as `any`)
-  - You can also use `all` here to automatically test every single combination
-    - **This can take several minutes to complete!**
-    - Any additional flags supplied after `all` will be ignored
-- `flags`
-  - *Optional*; Modifies the test's conditions
-  - Valid options:
-    | Name | Description |
-    |-|-|
-    | `invalid` | Use an intentionally invalid URL |
-    | `multiple` | Use multiple URLs |
-    | `playlist` | Use a playlist URL |
-    | `album` | Use an album URL |
-
-    > Note: The "playlist" and "album" flags cannot be used together in the same command
-
-*Example:*
-```
-test play spotify playlist
-```

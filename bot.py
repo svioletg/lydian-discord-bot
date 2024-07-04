@@ -1,4 +1,4 @@
-"""The main bot script. Running this will start viMusBot."""
+"""The main bot script. Running this will start Lydian."""
 
 # pylint: disable=wrong-import-position
 
@@ -9,6 +9,8 @@ import asyncio
 import glob
 import logging
 import os
+import re
+import sys
 import traceback
 from pathlib import Path
 from platform import python_version
@@ -25,7 +27,8 @@ from pretty_help import PrettyHelp
 import utils.configuration as cfg
 from cogs import cog_general, cog_voice
 from cogs.common import EmojiStr, SilentCancel, embedq
-from utils import miscutil, updater
+from utils import updating
+from utils.miscutil import create_logger
 from utils.palette import Palette
 from version import VERSION
 
@@ -37,34 +40,40 @@ discordpy_logfile_handler = logging.FileHandler(filename='discord.log', encoding
 discord.utils.setup_logging(handler=discordpy_logfile_handler, level=logging.INFO, root=False)
 
 # Setup bot logging
-log = miscutil.create_logger('viMusBot', Path('vimusbot.log'))
-
+log = create_logger('lydian', Path('lydian.log'))
 log.info('Logging for bot.py is now active.')
-
 log.info('Python version: %s', python_version())
-log.info('viMusBot version: %s', VERSION)
+log.info('Lydian version: %s', VERSION)
 
-# TODO: Make sure updater is up to snuff
+vc_ref: cog_voice.Voice
+
 # Check for updates
-# if __name__ == '__main__':
-#     log.info('Running on version %s; checking for updates...', VERSION)
+if __name__ == '__main__':
+    def check_for_updates():
+        log.info('Running on version %s; checking for updates...', VERSION)
 
-#     update_check_result = update.get_latest_tag()
+        if VERSION.startswith('dev.'):
+            log.warning('You are running a development version.')
 
-#     # Check for an outdated version
-#     if update_check_result['current'] != update_check_result['latest']:
-#         log.warning('### There is a new release available.')
-#         current_tag = update_check_result['current']
-#         latest_tag = update_check_result['latest']
-#         log.warning('### Current: %s | Latest: %s', current_tag, latest_tag)
-#         log.warning('### Use "update.py" or "update.bat" to update.')
-#     else:
-#         if VERSION.startswith('dev.'):
-#             log.warning('You are running a development version.')
-#         else:
-#             log.info('You are up to date.')
+        latest_release = updating.get_latest_release()
+        if not latest_release:
+            log.warning('Could not retrieve latest release.')
+            return
+        current = updating.Release.get_version_tuple(VERSION)
 
-#     log.info('Changelog: https://github.com/svioletg/viMusBot/blob/master/docs/changelog.md')
+        # Check for an outdated version
+        if current < latest_release.version:
+            log.warning('### There is a new release available: %s', latest_release.tag)
+            if latest_release.is_prerelease:
+                log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+            if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
+                print(f'\n{important_notes}\n')
+            log.warning('### Use "update.py" or "update.bat" to update.')
+        else:
+            log.info('You are up to date.')
+
+        log.info('Changelog: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md')
+    check_for_updates()
 
 # Clear out downloaded files
 log.info('Removing previously downloaded media files...')
@@ -134,7 +143,16 @@ async def on_command_error(ctx: commands.Context, error: BaseException):
         str(error)))
 
 @bot.event
+async def on_error(event_name, *args, **kwargs): # pylint: disable=unused-argument
+    """Handles any non-command errors."""
+    error = sys.exc_info()[1]
+    log.error(error)
+    if cfg.LOG_TRACEBACKS:
+        log.error('Full traceback to follow...\n\n%s', ''.join(traceback.format_exception(error)))
+
+@bot.event
 async def on_ready():
+    "Runs when the bot is ready to start."
     log.info('Logged in as %s (ID: %s)', bot.user, bot.user.id)
     log.info('=' * 20)
     log.info('Ready!')
@@ -144,42 +162,45 @@ async def on_ready():
 asyncio_tasks: dict[str, asyncio.Task] = {}
 
 async def console_thread():
+    """Handles console commands."""
+    def exception_message(e: Exception):
+        log.info('Error encountered in console thread.')
+        log.error(e)
+        if cfg.LOG_TRACEBACKS:
+            log.error('Full traceback to follow...\n\n%s', ''.join(traceback.format_exception(e)))
+
     log.info('Console is active.')
     while True:
-        try:
-            user_input: str = await aioconsole.ainput('')
-            user_input = user_input.lower().strip()
-            if user_input == '':
-                continue
-            match user_input:
-                case 'colors':
-                    plt.preview()
-                    print()
-                case 'stop':
+        user_input: str = await aioconsole.ainput('')
+        user_input = user_input.lower().strip()
+        if user_input == '':
+            continue
+        match user_input:
+            case 'colors':
+                plt.preview()
+                print()
+            case 'stop':
+                try:
                     log.info('Stopping the bot...')
                     log.debug('Leaving voice if connected...')
-                    # await voice.disconnect()
+                    if vc_ref.voice_client:
+                        await vc_ref.voice_client.disconnect()
                     log.debug('Cancelling bot task...')
                     asyncio_tasks['bot'].cancel()
-                    try:
-                        await asyncio_tasks['bot']
-                    except asyncio.exceptions.CancelledError:
-                        pass
+                    await asyncio_tasks['bot']
                     log.debug('Cancelling console task...')
                     asyncio_tasks['console'].cancel()
-                    try:
-                        await asyncio_tasks['console']
-                    except asyncio.exceptions.CancelledError:
-                        pass
-                case _:
-                    log.info('Unrecognized command "%s"', user_input)
-        except Exception as e:
-            log.info('Error encountered in console thread!')
-            log.error(e)
-            if cfg.LOG_TRACEBACKS:
-                log.error('Full traceback to follow...\n\n%s', ''.join(traceback.format_exception(e)))
+                    await asyncio_tasks['console']
+                    log.info('All tasks stopped. Exiting...')
+                except Exception as e:
+                    exception_message(e)
+            case _:
+                log.info('Unrecognized command "%s"', user_input)
 
 async def bot_thread():
+    """Async thread for the Discord bot."""
+    global vc_ref # Can't really do this without it being global; pylint: disable=global-statement
+
     log.info('Starting bot thread...')
     log.debug('Assigning bot logger to cogs...')
     cog_general.log = log
@@ -188,11 +209,12 @@ async def bot_thread():
         log.debug('Adding cog: General')
         await bot.add_cog(cog_general.General(bot))
         log.debug('Adding cog: Voice')
-        await bot.add_cog(cog_voice.Voice(bot))
+        await bot.add_cog(vc_ref := cog_voice.Voice(bot))
         log.info('Logging in with token, please wait for a "Ready!" message before using any commands...')
         await bot.start(token)
 
 async def main():
+    """Creates main tasks and runs everything."""
     asyncio_tasks['bot'] = asyncio.create_task(bot_thread())
     asyncio_tasks['console'] = asyncio.create_task(console_thread())
     try:

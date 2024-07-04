@@ -10,7 +10,7 @@ from discord.ext import commands
 from cogs.common import command_aliases, embedq, is_command_enabled
 from version import VERSION
 
-log = logging.getLogger('viMusBot')
+log = logging.getLogger('lydian')
 
 class General(commands.Cog):
     """General, miscellaneous functions."""
@@ -21,7 +21,7 @@ class General(commands.Cog):
     @commands.check(is_command_enabled)
     async def changelog(self, ctx: commands.Context):
         """Returns a link to the changelog, and displays most recent version."""
-        await ctx.send(embed=embedq('Read the latest changelog here: https://github.com/svioletg/viMusBot/blob/master/docs/changelog.md',
+        await ctx.send(embed=embedq('Read the latest changelog here: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md',
             f'This bot is currently running on v{VERSION}'))
 
     @commands.command(aliases=command_aliases('ping'))
@@ -34,18 +34,18 @@ class General(commands.Cog):
     @commands.command(aliases=command_aliases('repository'))
     @commands.check(is_command_enabled)
     async def repository(self, ctx: commands.Context):
-        """Returns the link to the viMusBot GitHub repository."""
-        await ctx.send(embed=embedq('viMusBot GitHub repository: https://github.com/svioletg/viMusBot',
-            'https://github.com/svioletg/viMusBot\nA GitHub account is required to submit issues.'))
+        """Returns the link to the Lydian GitHub repository."""
+        await ctx.send(embed=embedq('Lydian GitHub repository: https://github.com/svioletg/lydian-discord-bot',
+            'https://github.com/svioletg/lydian-discord-bot\nA GitHub account is required to submit issues.'))
 
     @commands.command(aliases=command_aliases('faq'))
     @commands.check(is_command_enabled)
     async def faq(self, ctx: commands.Context):
-        """Returns a link to viMusBot's FAQ page."""
-        await ctx.send(embed=embedq('viMusBot FAQ page: https://github.com/svioletg/viMusBot/blob/master/docs/faq.md'))
+        """Returns a link to Lydian's FAQ page."""
+        await ctx.send(embed=embedq('Lydian FAQ page: https://github.com/svioletg/lydian-discord-bot/blob/main/docs/faq.md'))
 
     @commands.command(aliases=command_aliases('issues'))
     @commands.check(is_command_enabled)
     async def issues(self, ctx: commands.Context):
-        """Returns a link to viMusBot's FAQ page."""
-        await ctx.send(embed=embedq('viMusBot Issues page: https://github.com/svioletg/viMusBot/issues'))
+        """Returns a link to Lydian's FAQ page."""
+        await ctx.send(embed=embedq('Lydian Issues page: https://github.com/svioletg/lydian-discord-bot/issues'))

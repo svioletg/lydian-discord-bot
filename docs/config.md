@@ -1,10 +1,6 @@
-# viMusBot / Configuration
+# Lydian / Configuration
 
-Your viMusBot folder will come with a `config_default.yml` file, which contains various settings needed for the bot to run. Most of what is provided are simply user preferences — things like the bot's command prefix, the color of its embed sidebar, aliases for commands, and limiting the duration of what can be played.
-
-If you want to change these settings, you must create a `config.yml` file (the bot will create this file while starting up if it does not exist) and override the values for what you want to change. Anything not present in `config.yml` will use the default provided by `config_default.yml`.
-
-**It is important to not directly change the values of `config_default.yml`, as this file will be overwritten with each update.**
+Lydian has many settings available to customize and configure your bot. To use them, create a `config.yml` file in the bot's directory. Here you'll enter any config "keys" that you wish to change, which will then override the default value for that option.
 
 As an example, if you wanted to change the bot's prefix from the default `-` to `!`, you would write this into `config.yml`...
 
@@ -31,12 +27,22 @@ vote-to-skip:
     threshold-type: "percentage"
 ```
 
-`config_default.yml` has comments for each value, but I've also compiled every setting and its type + valid values on this page, to provide more thorough information.
-As an additional note, in your configuration you can also use `yes` / `no` in place of `true` / `false` if you prefer.
-
-## Glossary — General Options
+## Glossary
 
 Written in alphabetical order. All information below should be accurate as of version **2.0.0**.
+
+### `album-track-limit`
+
+> Prevents queueing an album longer than this limit.
+
+
+**Valid options:** any positive number
+
+**Example:**
+
+```yaml
+album-track-limit: 20
+```
 
 ### `aliases`
 
@@ -53,28 +59,17 @@ aliases:
         - "mv"
 ```
 
-### `album-track-limit`
+### `allow-playlists-albums`
 
-> Prevents queueing an album longer than this limit.
-
-**Valid options:** any positive number
-
-**Example:**
-
-```yaml
-album-track-limit: 20
-```
-
-### `allow-spotify-playlists`
-
-> Allow or prevent the queueing of Spotify entire playlists.
+> Allow or prevent the queueing of entire playlists / albums.
+> *NOTE: The bot will generally try its best to distinguish between a user-made playlist and an actual album, but the process isn't guaranteed to work, hence both being controlled by one configuration key.*
 
 **Valid options:** `true` or `false`
 
 **Example:**
 
 ```yaml
-allow-spotify-playlists: true
+allow-playlists-albums: true
 ```
 
 ### `auto-remove`
@@ -155,7 +150,7 @@ inactivity-timeout: 10
 
 ### `logging-options`
 
-> A key containing various options regarding how the bot will log its status out to the console. All of these options are only for customizing what you see in your command prompt or terminal — regardless of what you set here, everything will be saved in `vimusbot.log` for troubleshooting.
+> A key containing various options regarding how the bot will log its status out to the console. All of these options are only for customizing what you see in your command prompt or terminal — regardless of what you set here, everything will be saved in `lydian.log` for troubleshooting.
 
 ### `logging-options` → `console-log-level`
 
@@ -189,18 +184,29 @@ logging-options:
 
 **Valid options:** a color name that is any of the following...
 
-```
-lime
-green
-yellow
-gold
-red
-darkred
-magenta
-darkmagenta
-blue
-darkblue
-```
+![Image showing each available color in Windows Terminal, on Windows 11.
+The colors shown are...
+brightwhite,
+white,
+grey,
+gray,
+lime,
+green,
+yellow,
+gold,
+darkgold,
+lightred,
+red,
+darkred,
+magenta,
+purple,
+darkpurple,
+cyan,
+cerulean,
+teal,
+blue,
+darkblue,
+navy](https://i.imgur.com/rSUmfXP.png)
 
 ...for any of the keys listed in the example below.
 
@@ -209,12 +215,27 @@ darkblue
 ```yaml
 logging-options:
     colors:
-        no-color: false # set to "true" to completely disable colored output
-        module: "blue" # used for file names
-        warn: "gold" # non-urgent warnings and notices
-        error: "red" # used for tracebacks, and other complete failures
-        timer: "magenta" # used for the time since the last log shown at the end
-        function: "blue" # used for function names
+        no-color: no # Disables all message coloring
+        debug: "green"
+        info: "white"
+        warn: "gold"
+        error: "red"
+        critical: "red on white"
+        timer: "white" # Used for the time/date
+        module: "blue" # For module names (bot.py, media.py, etc.)
+        function: "yellow" # For function names
+```
+
+### `maximum-file-size`
+
+> Maximum file size allowed for `yt_dlp` to download, in megabytes (MB).
+
+**Valid options:** any positive number
+
+**Example:**
+
+```yaml
+maximum-file-size: 10 # 10 MB
 ```
 
 ### `maximum-urls`
@@ -227,6 +248,18 @@ logging-options:
 
 ```yaml
 maximum-urls: 3
+```
+
+### `play-history-max`
+
+> Maximum number of tracks to store in the bot's "play history" — which can be accessed with the `-history` command.
+
+**Valid options:** any positive number
+
+**Example:**
+
+```yaml
+play-history-max: 5
 ```
 
 ### `playlist-track-limit`
@@ -257,7 +290,7 @@ prefixes:
 
 ### `public`
 
-> Starts the bot in "public" mode if set to true, or "developer" mode if set to false. Developer mode will make the bot use the [developer prefix](#prefixes), and will enable developer-only [console commands](https://github.com/svioletg/viMusBot/blob/master/docs/console.md).
+> Starts the bot in "public" mode if set to true, or "developer" mode if set to false. Developer mode will make the bot use the [developer prefix](#prefixes), and will enable developer-only [console commands](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/console.md).
 
 **Valid options:** `true` or `false`
 

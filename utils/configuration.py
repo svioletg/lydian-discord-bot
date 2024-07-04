@@ -12,27 +12,27 @@ from typing import Any, Literal
 import yaml
 from benedict import benedict
 
-log = logging.getLogger('viMusBot')
+log = logging.getLogger('lydian')
 
-CONFIG_PATHS: dict[str, str] = {
+CONFIG_FILEPATHS: dict[str, str] = {
     'user': 'config.yml',
     'default': 'config_default.yml'
 }
 
-if not Path(CONFIG_PATHS['default']).is_file():
+if not Path(CONFIG_FILEPATHS['default']).is_file():
     print('config_default.yml not found; downloading the latest version...')
-    urllib.request.urlretrieve('https://raw.githubusercontent.com/svioletg/viMusBot/master/config_default.yml',
-        Path(CONFIG_PATHS['default']))
+    urllib.request.urlretrieve('https://raw.githubusercontent.com/svioletg/lydian-discord-bot/main/config_default.yml',
+        Path(CONFIG_FILEPATHS['default']))
 
-if not Path(CONFIG_PATHS['user']).is_file():
+if not Path(CONFIG_FILEPATHS['user']).is_file():
     print('config.yml does not exist; creating blank config.yml...')
-    with open(CONFIG_PATHS['user'], 'w', encoding='utf-8') as f:
+    with open(CONFIG_FILEPATHS['user'], 'w', encoding='utf-8') as f:
         f.write('')
 
-with open(CONFIG_PATHS['default'], 'r', encoding='utf-8') as f:
+with open(CONFIG_FILEPATHS['default'], 'r', encoding='utf-8') as f:
     CONFIG_DEFAULT_DICT = benedict(yaml.safe_load(f))
 
-with open(CONFIG_PATHS['user'], 'r', encoding='utf-8') as f:
+with open(CONFIG_FILEPATHS['user'], 'r', encoding='utf-8') as f:
     CONFIG_YAML = yaml.safe_load(f)
     CONFIG_DICT = benedict(CONFIG_YAML) if CONFIG_YAML else benedict({})
 
@@ -129,8 +129,10 @@ if conflicts := check_alias_conflicts():
     log.error('The same alias can not be used for multiple commands; please edit your config file.')
     raise SystemExit
 
-LOG_LEVEL          : str            = check_type('logging-options.console-log-level', str)
-LOG_COLORS         : dict[str, str] = check_type('logging-options.colors', dict)
+LOG_LEVEL: str            = check_type('logging-options.console-log-level', str)
+
+check_type('logging-options.colors', dict)
+LOG_COLORS_PATH    : str            = 'logging-options.colors'
 DISABLE_LOG_COLORS : bool           = check_type('logging-options.colors.no-color', bool)
 LOG_TRACEBACKS     : bool           = check_type('logging-options.log-full-tracebacks', bool)
 
@@ -157,5 +159,7 @@ SKIP_VOTES_EXACT      : int  = check_type('vote-to-skip.threshold-exact', int)
 SKIP_VOTES_PERCENTAGE : int  = check_type('vote-to-skip.threshold-percentage', int)
 if SKIP_VOTES_PERCENTAGE > 100:
     log.warning('Config key "vote-to-skip.threshold-percentage" is set higher than 100, which will make skipping impossible.')
+
+MAX_FILE_SIZE: int = check_type('maximum-file-size', int)
 
 log.info('No critical issues with configuration.')

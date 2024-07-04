@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
-from typing import Optional, Self, cast
+from typing import Callable, Optional, Self, cast
 
 # External imports
 from pydub import AudioSegment
@@ -30,7 +30,7 @@ from cogs.test_voice import VoiceTest
 from utils import media
 from utils.miscutil import Stopwatch, seconds_to_hms
 
-log = logging.getLogger('viMusBot')
+log = logging.getLogger('lydian')
 
 # Configure youtube dl
 ytdl = yt_dlp.YoutubeDL(media.ytdl_format_options)
@@ -65,7 +65,7 @@ class YTDLSource(PCMVolumeTransformer):
         self.src = data.get('extractor')
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, *, loop=None, stream=False) -> Self:
         """Creates a YTDLSource from a URL."""
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
@@ -136,13 +136,24 @@ class PlaylistLimitError(Exception):
     """Raised when a playlist exceeds its maximum length, set by user configuration."""
 
 async def author_in_vc(ctx: commands.Context) -> bool:
-    """Checks whether the command author is connected to a voice channel before allowing it to run."""
+    """Checks whether the command author is connected to a voice channel before allowing it to run.
+
+    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass."""
     command_author = cast(Member, ctx.author)
     if not command_author.voice:
         log.info('Command author not connected to voice, cancelling.')
         await ctx.send(embed=embedq(EmojiStr.cancel + ' You must be connected to a voice channel to do this.'))
         return False
-    return True
+
+    if ctx.voice_client:
+        if ctx.voice_client.channel == command_author.voice.channel:
+            return True
+        else:
+            await ctx.send(embed=embedq(EmojiStr.cancel + ' You must be in the same voice channel as the bot to do this.',
+                f'The bot is currently connected to "{ctx.voice_client.channel}"'))
+            return False
+    else:
+        return True
 
 class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
@@ -158,6 +169,7 @@ class Voice(commands.Cog):
         self.player: Optional[YTDLSource | FileAudioSource] = None
 
         self.advance_lock: bool = False
+        self.after_advance_queue: Optional[Callable] = None
 
         self.skip_votes_placed: list[Member] = []
 
@@ -182,6 +194,9 @@ class Voice(commands.Cog):
             while True:
                 await asyncio.sleep(TICK)
                 timeout_counter += TICK
+
+                if self.voice_client is None:
+                    break
 
                 if self.voice_client.is_playing() and not self.voice_client.is_paused():
                     timeout_counter = 0.0
@@ -221,7 +236,8 @@ class Voice(commands.Cog):
     @commands.check(author_in_vc)
     async def join(self, ctx: commands.Context):
         """Joins the same voice channel the command user is connected to."""
-        await ctx.send(embed=embedq(f'Joining voice channel: {cast(Member, ctx.author).voice.channel.name}'))
+        author = cast(Member, ctx.author)
+        await ctx.send(embed=embedq(f'Joining voice channel: {author.voice.channel.name}'))
 
     @commands.command(aliases=command_aliases('leave'))
     @commands.check(is_command_enabled)
@@ -310,7 +326,7 @@ class Voice(commands.Cog):
 
         self.media_queue.insert(destination - 1, origin_item := self.media_queue.pop(origin - 1))
         direction = 'up' if destination < origin else 'down'
-        await ctx.send(embed=embedq(EmojiStr.arrow_u if direction == 'up' else EmojiStr.arrow_d + f' Moved #{origin} ({origin_item.info.title}) ' +
+        await ctx.send(embed=embedq((EmojiStr.arrow_u if direction == 'up' else EmojiStr.arrow_d) + f' Moved #{origin} ({origin_item.info.title}) ' +
             f'{direction} to spot #{destination}.'))
 
     @commands.command(aliases=command_aliases('shuffle'))
@@ -346,7 +362,7 @@ class Voice(commands.Cog):
             else:
                 await ctx.send(embed=embedq(f'{EmojiStr.cancel} Invalid option; must be either "on" or "off"'))
                 return
-        await ctx.send(embed=embedq(f'Roulette mode is {'ON' if self.media_queue.roulette_mode else 'OFF'}.'))
+        await ctx.send(embed=embedq(f'{EmojiStr.dice} Roulette mode is {'ON' if self.media_queue.roulette_mode else 'OFF'}.'))
 
     @commands.command(aliases=command_aliases('remove'))
     @commands.check(is_command_enabled)
@@ -381,7 +397,7 @@ class Voice(commands.Cog):
     async def skip(self, ctx: commands.Context):
         """Skips the current track. If vote-to-skip is disabled for this bot, it will be skipped immediately."""
         ctx.author = cast(Member, ctx.author)
-        vote_requirement_real = cfg.SKIP_VOTES_EXACT if cfg.SKIP_VOTES_TYPE == 'exact'\
+        vote_requirement_real = cfg.SKIP_VOTES_EXACT if cfg.SKIP_VOTES_TYPE == 'exact' \
             else ceil(len(ctx.author.voice.channel.members) * (cfg.SKIP_VOTES_PERCENTAGE / 100))
         vote_requirement_display = cfg.SKIP_VOTES_EXACT if cfg.SKIP_VOTES_TYPE == 'exact' else f'{cfg.SKIP_VOTES_PERCENTAGE}%'
         skip_msg: Optional[Message] = None
@@ -527,7 +543,7 @@ class Voice(commands.Cog):
                     self.queue_msg = await edit_or_send(ctx, self.queue_msg,
                         embed=embedq(f'{EmojiStr.inbox} Added {item.info.title} to the queue at spot #{cast(int, item_index) + 1}'))
 
-        # Using -play alone with no args should resume the bot if we're paused
+        # Using -play alone with no args should resume the bot if we're paused, otherwise cancel
         if not queries:
             if self.voice_client.is_paused():
                 log.debug('Player is paused; resuming...')
@@ -561,19 +577,19 @@ class Voice(commands.Cog):
 
             #region play: PLAIN TEXT
             if plain_strings:
-                text_search: str = ' '.join(plain_strings)
-                log.debug('Using plain-text search: %s', text_search)
-                top_songs, top_videos, top_albums = map(media.search_ytmusic_text(text_search).get, ('songs', 'videos', 'albums'))
+                search_query: str = ' '.join(plain_strings)
+                log.debug('Using plain-text search: %s', search_query)
+                top = media.search_ytmusic_text(search_query)
 
                 if cfg.USE_TOP_MATCH:
                     log.debug('USE_TOP_MATCH on.')
-                    if top_songs:
+                    if top['songs']:
                         log.debug('Queueing top song...')
-                        await play_or_enqueue(QueueItem(top_songs[0], ctx.author))
+                        await play_or_enqueue(QueueItem(top['songs'][0], ctx.author)) # pylint: disable=unsubscriptable-object
                         return
-                    elif top_videos:
+                    elif top['videos']:
                         log.debug('Queueing top video...')
-                        await play_or_enqueue(QueueItem(top_videos[0], ctx.author))
+                        await play_or_enqueue(QueueItem(top['videos'][0], ctx.author)) # pylint: disable=unsubscriptable-object
                         return
                     else:
                         await ctx.send(embed=embedq(f'{EmojiStr.cancel} No close matches could be found.'))
@@ -592,7 +608,11 @@ class Voice(commands.Cog):
                             options[position] = item[0]
                     return options, target_embed
 
-                choice_options, choice_embed = assemble_choices(choice_embed, [top_songs, top_videos, top_albums], ['song', 'video', 'album'])
+                choice_options, choice_embed = assemble_choices(
+                    choice_embed,
+                    [top['songs'], top['videos'], top['albums']],
+                    ['song', 'video', 'album']
+                    )
 
                 choice_prompt = await ctx.send(embed=choice_embed)
                 choice = await prompt_for_choice(self.bot, ctx, choice_prompt, choice_nums=len(choice_options), result_msg=self.queue_msg)
@@ -637,8 +657,14 @@ class Voice(commands.Cog):
                     # Convert to a normal YouTube playlist URL because dealing with YTMusic playlists/albums are a hassle
                     media_list = media.PlaylistInfo.from_ytdl(url.replace('music.', 'www.'))
                 elif url.startswith('https://open.spotify.com/album/'):
+                    if not media.sp:
+                        await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
+                        return
                     media_list = media.AlbumInfo.from_spotify_url(url)
                 elif url.startswith('https://open.spotify.com/playlist/'):
+                    if not media.sp:
+                        await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
+                        return
                     media_list = media.PlaylistInfo.from_spotify_url(url)
                 elif re.findall(r"https://soundcloud\.com/\w+/sets/", url):
                     media_list = media.soundcloud_set(url)
@@ -659,7 +685,9 @@ class Voice(commands.Cog):
 
                 if isinstance(media_list, media.AlbumInfo) and media_list.source == media.SPOTIFY:
                     # Find a YTMusic equivalent album if we have a Spotify album
-                    await self.queue_msg.edit(embed=embedq('Trying to match this Spotify album with a YouTube Music equivalent...'))
+                    log.debug('Trying to match Spotify album to YouTube Music...')
+                    await self.queue_msg.edit(embed=embedq('Trying to match this Spotify album with a YouTube Music equivalent...',
+                        'This can take a few seconds...'))
                     if match_result := media.match_ytmusic_album(media_list, threshold=50):
                         yt_album = match_result[0]
                         await self.queue_msg.edit(embed=embedq('A possible match was found. Queue this album?') \
@@ -687,6 +715,9 @@ class Voice(commands.Cog):
                         log.debug('Looks like a YouTube Music or YouTube URL, creating QueueItem...')
                         to_queue.append(QueueItem(media.TrackInfo.from_pytube(url), ctx.author))
                     elif url.startswith('https://open.spotify.com/track/'):
+                        if not media.sp:
+                            await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
+                            return
                         log.debug('Looks like a Spotify URL, creating QueueItem...')
                         to_queue.append(QueueItem(media.TrackInfo.from_spotify_url(url), ctx.author))
                     elif url.startswith('https://soundcloud.com/'):
@@ -738,7 +769,8 @@ class Voice(commands.Cog):
 
     def get_queued_by_text(self, member: Member) -> str:
         """Returns the nickname (if set, username otherwise) of who queued the current item if that is enabled,
-        otherwise an empty string."""
+        otherwise an empty string.
+        """
         return f'\nQueued by {member.nick or member.name}' if cfg.SHOW_USERS_IN_QUEUE else ''
 
     def get_loop_icon(self) -> str:
@@ -764,11 +796,12 @@ class Voice(commands.Cog):
 
     async def advance_queue(self, ctx: commands.Context, skipping: bool=False):
         """Attempts to advance forward in the queue, if the bot is clear to do so.
-        Set to run whenever the audio player finishes its current item."""
+        Set to run whenever the audio player finishes its current item.
+        """
         if not self.voice_client.is_connected():
             return
 
-        if not self.advance_lock and (skipping or not self.voice_client.is_playing()):
+        if (not self.advance_lock) and (skipping or not self.voice_client.is_playing()):
             log.debug('Locking...')
             self.advance_lock = True
             try:
@@ -783,6 +816,8 @@ class Voice(commands.Cog):
                             log.debug('Removed file: %s', file)
                         except PermissionError:
                             log.debug('Permission error prevented removal of file: %s', file)
+                        except FileNotFoundError:
+                            log.debug('File not found: %s', file)
                 self.player = None
 
                 self.previous_item = self.current_item
@@ -800,6 +835,9 @@ class Voice(commands.Cog):
                 # finally statement makes sure we still unlock if an error occurs
                 log.debug('Tasks finished; unlocking...')
                 self.advance_lock = False
+            if self.after_advance_queue:
+                self.after_advance_queue()
+            self.after_advance_queue = None
         elif self.advance_lock:
             log.debug('Attempted call while locked; ignoring...')
 
@@ -807,15 +845,16 @@ class Voice(commands.Cog):
         """Create a new player from the given `QueueItem` and starts playing audio.
         Handles matching individual Spotify tracks to YTMusic.
 
-        Use `advance_queue()` to attempt moving the queue along, do not use this function directly."""
+        Use `advance_queue()` to attempt moving the queue along, do not use this function directly.
+        """
         log.info('Trying to start playing...')
 
-        self.audio_seconds_elapsed = 0.0
+        def skip_after_return() -> None:
+            self.after_advance_queue = lambda: asyncio.run_coroutine_threadsafe(self.advance_queue(ctx, skipping=True), self.bot.loop)
+
+        self.audio_time_elapsed = 0.0
 
         if item != self.previous_item:
-            if self.previous_item:
-                self.play_history.appendleft(self.previous_item)
-
             if self.now_playing_msg:
                 self.now_playing_msg = await self.now_playing_msg.delete()
 
@@ -834,7 +873,7 @@ class Voice(commands.Cog):
                         choice = await prompt_for_choice(self.bot, ctx,
                             prompt_msg=prompt_msg, choice_nums=len(matches), result_msg=self.queue_msg)
                         if isinstance(choice, int) and choice != 0:
-                            item.info = matches[choice]
+                            item.info = matches[choice - 1]
                         else:
                             await self.advance_queue(ctx)
                             return
@@ -845,7 +884,7 @@ class Voice(commands.Cog):
                 prompt_msg = await ctx.send(embed=embedq(f'The duration of "{item.info.title}" couldn\'t be retrieved, so ' +
                     'it can\'t be checked against the duration limit. Play anyway?'))
                 if await prompt_for_choice(self.bot, ctx, prompt_msg=prompt_msg, yesno=True) == 0:
-                    await self.advance_queue(ctx, skipping=True)
+                    skip_after_return()
                     return
 
         try:
@@ -854,7 +893,14 @@ class Voice(commands.Cog):
         except yt_dlp.utils.DownloadError:
             log.info('Download error occurred; skipping this item...')
             await ctx.send(embed=embedq('This video is unavailable.', f'URL: {item.info.url}'))
-            await self.advance_queue(ctx, skipping=True)
+            skip_after_return()
+            return
+
+        if not self.player.filepath.is_file():
+            log.info('Player filepath was not found, skipping...')
+            await ctx.send(embed=embedq('File is missing, skipping this item.',
+                'The video file likely went over the filesize limit. Check the logs for details.'))
+            skip_after_return()
             return
 
         self.voice_client.stop()
@@ -867,12 +913,15 @@ class Voice(commands.Cog):
             self.now_playing_msg = await ctx.send(embed=self.embed_now_playing(show_elapsed=False))
 
         if self.queue_msg:
-            self.queue_msg = await self.queue_msg.delete()
+            self.queue_msg = await self.queue_msg.delete(delay=1.0)
 
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
-        specifically to be used as the `after` argument for a player source. Should not be used alone."""
+        specifically to be used as the `after` argument for a player source. Should not be used alone.
+        """
         log.debug('Player has finished.')
+        if (self.previous_item) and (self.play_history[0] != self.previous_item):
+            self.play_history.appendleft(self.previous_item)
         newfile = self.modified_fname(str(self.player.filepath))
         print(newfile)
         print(not Path(newfile).is_file())
