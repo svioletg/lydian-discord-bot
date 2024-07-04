@@ -81,13 +81,15 @@ class MediaInfo:
         self.thumbnail: str = ''
         self.album_name: str = ''
         self.release_year: str = ''
-        self.contents: list = []
+        self.contents: list[TrackInfo] = []
 
         if source == SPOTIFY:
             self.url            = cast(str, info['external_urls']['spotify'])
             self.title          = cast(str, info['name'])
             self.artist         = cast(str, benedict(self.info).get('artists[0].name', ''))
         elif source == SOUNDCLOUD:
+            print(info)
+            print(type(info))
             self.url            = cast(str, info.permalink_url)
             self.title          = cast(str, info.title)
             self.artist         = cast(str, info.user['username'])
@@ -177,9 +179,7 @@ class MediaInfo:
         """
         if isinstance(info, str):
             results = ytmusic.search(info, filter='songs') or ytmusic.search(info, filter='videos')
-            print(results[:3])
             info = results[0]
-            print(info)
         return cls(YOUTUBE, info, yt_info_origin='ytmusic')
 
     @classmethod
@@ -549,7 +549,7 @@ def soundcloud_set(url: str) -> PlaylistInfo | AlbumInfo:
 
     # is_album IS a member of Playlist, but Pylint doesn't seem to know that
     is_album: bool = response.is_album # pylint: disable=no-member
-    return AlbumInfo(SOUNDCLOUD, response.tracks) if is_album else PlaylistInfo(SOUNDCLOUD, response.tracks)
+    return AlbumInfo(SOUNDCLOUD, response) if is_album else PlaylistInfo(SOUNDCLOUD, response)
 #endregion
 
 #region SPOTIFY
@@ -617,7 +617,6 @@ def search_ytmusic_text(query: str, max_results: int=1) -> dict[str, Any]:
         if not val[0]:
             continue
         category, cls = val
-        print(key, len(category), cls)
         results[key] = [cls.from_ytmusic(i) for n, i in enumerate(category) if n <= max_results]
 
     return results

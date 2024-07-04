@@ -16,6 +16,8 @@ Start by downloading the `Source code (zip)` file under **Assets** from the bott
 
 ---
 > *Lydian was formerly [viMusBot](https://github.com/svioletg/viMusBot); its first release is what was intended to be viMusBot 2.0.0, but I decided it would be less complicated to just make a new repository since the update was practically a rewrite in many aspects. As I consider it simply a continuation of the same project, however, Lydian's first release was still marked as 2.0.0.*
+>
+> If you're coming over from viMusBot, you can copy over your `spotify_config.json`, `config.yml`, and `token.txt` files and they will function the same.
 
 ## Contents
 
