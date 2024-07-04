@@ -1,6 +1,6 @@
-# Lydian
+# Lydian <!-- omit in toc -->
 
-## You are on the `dev` branch. Switch to the `master` branch here: https://github.com/svioletg/lydian-discord-bot/tree/master
+## You are on the `dev` branch. Switch to the `master` branch here: https://github.com/svioletg/lydian-discord-bot/tree/master <!-- omit in toc -->
 
 Full changelog: [changelog.md](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md)
 
@@ -17,23 +17,19 @@ Start by downloading the `Source code (zip)` file under **Assets** from the bott
 ---
 > *Lydian was formerly [viMusBot](https://github.com/svioletg/viMusBot); its first release is what was intended to be viMusBot 2.0.0, but I decided it would be less complicated to just make a new repository since the update was practically a rewrite in many aspects. As I consider it simply a continuation of the same project, however, Lydian's first release was still marked as 2.0.0.*
 >
-> If you're coming over from viMusBot, you can copy over your `spotify_config.json`, `config.yml`, and `token.txt` files and they will function the same.
+> *If you're coming over from viMusBot, you can copy over your `spotify_config.json`, `config.yml`, and `token.txt` files and they will function the same.*
 
-## Contents
+## Contents <!-- omit in toc -->
 
-[Setting Up: Python](#setting-up-python)
+- [Setup: Python](#setup-python)
+- [Setup: Required software](#setup-required-software)
+- [Setup: Discord](#setup-discord)
+- [Setup: Spotify API](#setup-spotify-api)
+- [Running \& Updating](#running--updating)
+- [Reading Logs](#reading-logs)
+- [Documentation \& Guides](#documentation--guides)
 
-[Setting Up: Required software](#setting-up-required-software)
-
-[Setting Up: Discord](#setting-up-discord)
-
-[Setting Up: Spotify API](#setting-up-spotify-api)
-
-[Running & Updating](#running--updating)
-
-[Documentation & Guides](#documentation--guides)
-
-## Setting up: Python
+## Setup: Python
 
 Lydian needs Python in order to run. The [Python homepage](https://www.python.org/downloads) can point you to installers for Windows or MacOS, while most Linux distros should have it available in your package manager. As of writing this, the most recent major version is Python 3.12, which Lydian is being written and tested in, and thus this version is recommended.
 
@@ -43,7 +39,7 @@ Next, you need to install Lydian's required packages. For a quick and automatic 
 
 Otherwise, you can install any requirements by running the command `pip install -r requirements.txt` from within your Lydian directory. Using a venv isn't required, but is recommended to keep everything self-contained.
 
-## Setting up: Required software
+## Setup: Required software
 
 Lydian requires [FFmpeg and FFprobe](https://www.ffmpeg.org/) to function properly.
 
@@ -55,7 +51,7 @@ For **Linux**, you can likely install it via your distro's package manger. e.g f
 
 If you already have FFmpeg and FFprobe added to your system's enviornment variables or PATH, then the bot will run just fine without them present in its folder.
 
-## Setting up: Discord
+## Setup: Discord
 
 Go to the [Discord Developer Portal](https://discord.com/developers/applications/) and login with your Discord account. You should land on your "Applications" page — click the blue "**New Application**" button near the top right of the screen, enter a name, and hit "**Create**". The application does *not* have to be named "Lydian".
 
@@ -84,7 +80,7 @@ Tick the boxes next to these permissions, and then save your changes.
 
 **To create an invite link** for the bot, click "OAuth2" on the left sidebar, then "URL Generator". Under "Scopes", tick only the "bot" checkbox. Under "Bot Permission", select the same permissions shown above. Your link will be at the bottom of this page.
 
-## Setting up: Spotify API
+## Setup: Spotify API
 
 > *NOTE: If you want to skip setting up the Spotify API, you can skip this section. If the bot doesn't see a `spotify_config.json` file, all Spotify functionality will be safely disabled and the bot can still do everything else as usual.*
 

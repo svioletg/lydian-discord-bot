@@ -46,7 +46,7 @@ def seconds_to_hms(seconds: int | float, format_zero: bool = True) -> str | None
     """Returns a formatted string in either MM:SS or HH:MM:SS from the given time in seconds.
 
     @format_zero: By default, `0:00` is returned if the input is `0`. Setting this to `False` will instead
-        return `None` in that case.
+        return `None`.
     """
     if (seconds == 0) and (not format_zero):
         return None

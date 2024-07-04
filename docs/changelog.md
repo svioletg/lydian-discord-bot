@@ -28,6 +28,7 @@ Developer
             - `INACTIVITY_TIMEOUT` renamed to `INACTIVITY_TIMEOUT_MINS`
             - `play_item()` moved here and renamed to `make_and_start_player()`
             - `advance_queue()` moved here
+            - New function `handle_player_stop()` created which is used as `voice_client.play()`'s `after` callback instead of going straight to `advance_queue()`
             - `QueueItem`'s class method `generate_from_list()` renamed to `from_list()`
             - `MediaQueue` no longer keeps track of multiple queues per Discord server and instead represents just a single queue (part of [vMB #52](https://github.com/svioletg/viMusBot/issues/52))
                 - It also now contains things like `now_playing`, `last_played`, `is_looping` (formerly `loop_this`), etc.

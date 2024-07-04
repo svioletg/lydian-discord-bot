@@ -326,33 +326,35 @@ def track_list_duration(track_list: list[TrackInfo]) -> int:
 # Pylint warns about some return paths here returning None, but I can't find a situation where that would happen
 def get_group_contents(group_object: AlbumInfo | PlaylistInfo) -> list[TrackInfo]: # type: ignore
     """Retrieves a list of `TrackInfo` objects based on the URLs found witin an AlbumInfo or PlaylistInfo object."""
-    object_list: list[TrackInfo] = []
+    group_contents: list[TrackInfo] = []
     log.debug('Looking for MediaInfo group contents...')
     if group_object.source == SPOTIFY:
         track_list = cast(list[dict], group_object.info['tracks']['items'])
         for track in track_list:
             try:
                 if isinstance(group_object, AlbumInfo):
-                    object_list.append(TrackInfo(SPOTIFY, track))
-                    object_list[-1].thumbnail    = group_object.thumbnail
-                    object_list[-1].album_name   = group_object.album_name
-                    object_list[-1].release_year = group_object.release_year
+                    group_contents.append(TrackInfo(SPOTIFY, track))
+                    group_contents[-1].thumbnail    = group_object.thumbnail
+                    group_contents[-1].album_name   = group_object.album_name
+                    group_contents[-1].release_year = group_object.release_year
 
                 elif isinstance(group_object, PlaylistInfo):
-                    object_list.append(TrackInfo(SPOTIFY, cast(dict, track['track'])))
+                    group_contents.append(TrackInfo(SPOTIFY, cast(dict, track['track'])))
             except LocalFileError:
                 log.debug('Skipping local file: %s', track)
                 continue
-        return object_list
+        return group_contents
 
     if group_object.source == SOUNDCLOUD:
         track_list = group_object.info.tracks
         for track in track_list:
-            object_list.append(TrackInfo(SOUNDCLOUD, track))
-            object_list[-1].thumbnail    = group_object.thumbnail
-            object_list[-1].album_name   = group_object.album_name
-            object_list[-1].release_year = group_object.release_year
-        return object_list
+            group_contents.append(TrackInfo(SOUNDCLOUD, track))
+            if isinstance(group_object, AlbumInfo):
+                group_contents[-1].artist      = group_object.artist
+                group_contents[-1].thumbnail    = group_object.thumbnail
+                group_contents[-1].album_name   = group_object.album_name
+                group_contents[-1].release_year = group_object.release_year
+        return group_contents
 
     if group_object.source == YOUTUBE:
         if group_object.yt_info_origin == 'ytmusic':
@@ -361,18 +363,19 @@ def get_group_contents(group_object: AlbumInfo | PlaylistInfo) -> list[TrackInfo
             track_list = group_object.info['entries']
         if group_object.yt_info_origin == 'pytube':
             raise ValueError('pytube origin incompatible with get_group_contents()')
-
         for track in track_list:
-            object_list.append(TrackInfo(YOUTUBE, track))
-            object_list[-1].thumbnail    = object_list[-1].thumbnail or group_object.thumbnail
-            object_list[-1].album_name   = object_list[-1].album_name or group_object.album_name
-            object_list[-1].release_year = object_list[-1].release_year or group_object.release_year
-        return object_list
+            group_contents.append(TrackInfo(YOUTUBE, track))
+            if isinstance(group_object, AlbumInfo):
+                group_contents[-1].artist       = group_object.artist
+                group_contents[-1].thumbnail    = group_contents[-1].thumbnail or group_object.thumbnail
+                group_contents[-1].album_name   = group_contents[-1].album_name or group_object.album_name
+                group_contents[-1].release_year = group_contents[-1].release_year or group_object.release_year
+        return group_contents
 
     if group_object.source == OTHER:
         track_list = group_object.info['entries']
-        object_list = [TrackInfo.from_other(track['url']) for track in track_list]
-        return object_list
+        group_contents = [TrackInfo.from_other(track['url']) for track in track_list]
+        return group_contents
 #endregion MEDIAINFO AND SUBCLASSES
 
 #endregion DEFINE CLASSES

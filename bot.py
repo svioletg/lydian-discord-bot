@@ -187,23 +187,13 @@ async def console_thread():
                         await vc_ref.voice_client.disconnect()
                     log.debug('Cancelling bot task...')
                     asyncio_tasks['bot'].cancel()
-                    try:
-                        await asyncio_tasks['bot']
-                    except asyncio.exceptions.CancelledError as e:
-                        print(e)
+                    await asyncio_tasks['bot']
                     log.debug('Cancelling console task...')
                     asyncio_tasks['console'].cancel()
-                    try:
-                        await asyncio_tasks['console']
-                    except asyncio.exceptions.CancelledError as e:
-                        print(e)
+                    await asyncio_tasks['console']
                     log.info('All tasks stopped. Exiting...')
-                except RuntimeError:
-                    pass
                 except Exception as e:
                     exception_message(e)
-                finally:
-                    raise SystemExit(0)
             case _:
                 log.info('Unrecognized command "%s"', user_input)
 

@@ -496,7 +496,7 @@ class Voice(commands.Cog):
                     self.queue_msg = await edit_or_send(ctx, self.queue_msg,
                         embed=embedq(f'{EmojiStr.inbox} Added {item.info.title} to the queue at spot #{cast(int, item_index) + 1}'))
 
-        # Using -play alone with no args should resume the bot if we're paused
+        # Using -play alone with no args should resume the bot if we're paused, otherwise cancel
         if not queries:
             if self.voice_client.is_paused():
                 log.debug('Player is paused; resuming...')
@@ -561,7 +561,11 @@ class Voice(commands.Cog):
                             options[position] = item[0]
                     return options, target_embed
 
-                choice_options, choice_embed = assemble_choices(choice_embed, [top['songs'], top['videos'], top['albums']], ['song', 'video', 'album'])
+                choice_options, choice_embed = assemble_choices(
+                    choice_embed,
+                    [top['songs'], top['videos'], top['albums']],
+                    ['song', 'video', 'album']
+                    )
 
                 choice_prompt = await ctx.send(embed=choice_embed)
                 choice = await prompt_for_choice(self.bot, ctx, choice_prompt, choice_nums=len(choice_options), result_msg=self.queue_msg)
@@ -706,7 +710,8 @@ class Voice(commands.Cog):
 
     def get_queued_by_text(self, member: Member) -> str:
         """Returns the nickname (if set, username otherwise) of who queued the current item if that is enabled,
-        otherwise an empty string."""
+        otherwise an empty string.
+        """
         return f'\nQueued by {member.nick or member.name}' if cfg.SHOW_USERS_IN_QUEUE else ''
 
     def get_loop_icon(self) -> str:
@@ -732,7 +737,8 @@ class Voice(commands.Cog):
 
     async def advance_queue(self, ctx: commands.Context, skipping: bool=False):
         """Attempts to advance forward in the queue, if the bot is clear to do so.
-        Set to run whenever the audio player finishes its current item."""
+        Set to run whenever the audio player finishes its current item.
+        """
         if not self.voice_client.is_connected():
             return
 
@@ -780,7 +786,8 @@ class Voice(commands.Cog):
         """Create a new player from the given `QueueItem` and starts playing audio.
         Handles matching individual Spotify tracks to YTMusic.
 
-        Use `advance_queue()` to attempt moving the queue along, do not use this function directly."""
+        Use `advance_queue()` to attempt moving the queue along, do not use this function directly.
+        """
         log.info('Trying to start playing...')
 
         def skip_after_return() -> None:
@@ -789,9 +796,6 @@ class Voice(commands.Cog):
         self.audio_time_elapsed = 0.0
 
         if item != self.previous_item:
-            if self.previous_item:
-                self.play_history.appendleft(self.previous_item)
-
             if self.now_playing_msg:
                 self.now_playing_msg = await self.now_playing_msg.delete()
 
@@ -854,6 +858,9 @@ class Voice(commands.Cog):
 
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
-        specifically to be used as the `after` argument for a player source. Should not be used alone."""
+        specifically to be used as the `after` argument for a player source. Should not be used alone.
+        """
         log.debug('Player has finished.')
+        if (self.previous_item) and (self.play_history[0] != self.previous_item):
+            self.play_history.appendleft(self.previous_item)
         await self.advance_queue(ctx)
