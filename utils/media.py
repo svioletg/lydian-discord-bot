@@ -33,7 +33,8 @@ plt = Palette()
 class MediaSource(str):
     """String subclass that represents a media source. Exists only for typing purposes.
 
-    Every `MediaSource` that exists should be supported by `MediaInfo`."""
+    Every `MediaSource` that exists should be supported by `MediaInfo`.
+    """
     def __repr__(self):
         return f'<MediaSource "{self}">'
 
