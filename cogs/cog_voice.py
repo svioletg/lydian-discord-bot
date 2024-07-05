@@ -124,7 +124,8 @@ class PlaylistLimitError(Exception):
 async def author_in_vc(ctx: commands.Context) -> bool:
     """Checks whether the command author is connected to a voice channel before allowing it to run.
 
-    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass."""
+    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass.
+    """
     command_author = cast(Member, ctx.author)
     if not command_author.voice:
         log.info('Command author not connected to voice, cancelling.')
@@ -143,7 +144,6 @@ async def author_in_vc(ctx: commands.Context) -> bool:
 
 class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
-
     def __init__(self, bot: commands.bot.Bot):
         self.bot = bot
         self.voice_client: Optional[VoiceClient] = None
@@ -295,7 +295,8 @@ class Voice(commands.Cog):
         """Moves the queue item located at `origin` to `destination`.
 
         @origin: Index of the queue item to be moved.
-        @destination: What spot the item should be moved to."""
+        @destination: What spot the item should be moved to.
+        """
         if self.media_queue == []:
             await ctx.send(embed=CommonMsg.queue_is_empty())
             return
@@ -412,7 +413,8 @@ class Voice(commands.Cog):
         """Toggles looping the current track. If no argument is given, looping will be turned on if its currently off, and vice versa.
         Alternatively, you can use "loop on" or "loop off" to toggle it explicitly.
 
-        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that."""
+        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that.
+        """
         if toggle in ['on', 'off']:
             self.media_queue.is_looping = {'on': True, 'off': False}[toggle]
             log.info('Looping changed to %s.', self.media_queue.is_looping)
@@ -443,12 +445,10 @@ class Voice(commands.Cog):
     @commands.check(is_command_enabled)
     @commands.check(author_in_vc)
     async def stop(self, ctx: commands.Context): # pylint: disable=unused-argument
-        """Stops audio and clears the remaining queue."""
-        log.info('Stopping audio and clearing the queue...')
+        """Stops the player, and clears the remaining queue."""
+        log.info('Stopping player and clearing the queue...')
         self.voice_client.stop()
         self.media_queue.clear()
-        self.current_item = None
-        self.previous_item = None
 
     @commands.command(aliases=command_aliases('nowplaying'))
     @commands.check(is_command_enabled)
@@ -497,7 +497,7 @@ class Voice(commands.Cog):
                     self.queue_msg = await edit_or_send(ctx, self.queue_msg,
                         embed=embedq(f'{EmojiStr.inbox} Added {item.info.title} to the queue at spot #{cast(int, item_index) + 1}'))
 
-        # Using -play alone with no args should resume the bot if we're paused
+        # Using -play alone with no args should resume the bot if we're paused, otherwise cancel
         if not queries:
             if self.voice_client.is_paused():
                 log.debug('Player is paused; resuming...')
@@ -562,7 +562,11 @@ class Voice(commands.Cog):
                             options[position] = item[0]
                     return options, target_embed
 
-                choice_options, choice_embed = assemble_choices(choice_embed, [top['songs'], top['videos'], top['albums']], ['song', 'video', 'album'])
+                choice_options, choice_embed = assemble_choices(
+                    choice_embed,
+                    [top['songs'], top['videos'], top['albums']],
+                    ['song', 'video', 'album']
+                    )
 
                 choice_prompt = await ctx.send(embed=choice_embed)
                 choice = await prompt_for_choice(self.bot, ctx, choice_prompt, choice_nums=len(choice_options), result_msg=self.queue_msg)
@@ -615,7 +619,12 @@ class Voice(commands.Cog):
                     if not media.sp:
                         await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
                         return
-                    media_list = media.PlaylistInfo.from_spotify_url(url)
+                    try:
+                        media_list = media.PlaylistInfo.from_spotify_url(url)
+                    except media.MediaError:
+                        await self.queue_msg.edit(embed=embedq(f'{EmojiStr.cancel} Couldn\'t retrieve playlist from Spotify.',
+                            'The playlist may be private, or the link may be invalid.'))
+                        return
                 elif re.findall(r"https://soundcloud\.com/\w+/sets/", url):
                     media_list = media.soundcloud_set(url)
                 elif re.findall(r"https://\w+\.bandcamp\.com/album/", url):
@@ -707,7 +716,8 @@ class Voice(commands.Cog):
 
     def get_queued_by_text(self, member: Member) -> str:
         """Returns the nickname (if set, username otherwise) of who queued the current item if that is enabled,
-        otherwise an empty string."""
+        otherwise an empty string.
+        """
         return f'\nQueued by {member.nick or member.name}' if cfg.SHOW_USERS_IN_QUEUE else ''
 
     def get_loop_icon(self) -> str:
@@ -733,7 +743,8 @@ class Voice(commands.Cog):
 
     async def advance_queue(self, ctx: commands.Context, skipping: bool=False):
         """Attempts to advance forward in the queue, if the bot is clear to do so.
-        Set to run whenever the audio player finishes its current item."""
+        Set to run whenever the audio player finishes its current item.
+        """
         if not self.voice_client.is_connected():
             await self.bot.change_presence(activity=Activity(
                 name=f'Nothing! Use `{self.bot.command_prefix}play` to start',
@@ -791,7 +802,8 @@ class Voice(commands.Cog):
         """Create a new player from the given `QueueItem` and starts playing audio.
         Handles matching individual Spotify tracks to YTMusic.
 
-        Use `advance_queue()` to attempt moving the queue along, do not use this function directly."""
+        Use `advance_queue()` to attempt moving the queue along, do not use this function directly.
+        """
         log.info('Trying to start playing...')
 
         def skip_after_return() -> None:
@@ -800,9 +812,6 @@ class Voice(commands.Cog):
         self.audio_time_elapsed = 0.0
 
         if item != self.previous_item:
-            if self.previous_item:
-                self.play_history.appendleft(self.previous_item)
-
             if self.now_playing_msg:
                 self.now_playing_msg = await self.now_playing_msg.delete()
 
@@ -870,6 +879,9 @@ class Voice(commands.Cog):
 
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
-        specifically to be used as the `after` argument for a player source. Should not be used alone."""
+        specifically to be used as the `after` argument for a player source. Should not be used alone.
+        """
         log.debug('Player has finished.')
+        if (self.current_item) and (self.play_history[0] != self.current_item):
+            self.play_history.appendleft(self.current_item)
         await self.advance_queue(ctx)

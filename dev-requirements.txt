@@ -1,3 +1,4 @@
+marko == 2.1.2
 mypy == 1.10.0
-pylint == 3.2.3
+pylint == 3.2.5
 ptpython == 3.0.27

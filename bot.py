@@ -66,6 +66,8 @@ if __name__ == '__main__':
             log.warning('### There is a new release available: %s', latest_release.tag)
             if latest_release.is_prerelease:
                 log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+            # Anything in the release notes preceded with "###" will be shown here,
+            # usually for warnings of breaking changes or as a general summary
             if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
                 print(f'\n{important_notes}\n')
             log.warning('### Use "update.py" or "update.bat" to update.')
@@ -192,23 +194,13 @@ async def console_thread():
                         await vc_ref.voice_client.disconnect()
                     log.debug('Cancelling bot task...')
                     asyncio_tasks['bot'].cancel()
-                    try:
-                        await asyncio_tasks['bot']
-                    except asyncio.exceptions.CancelledError as e:
-                        print(e)
+                    await asyncio_tasks['bot']
                     log.debug('Cancelling console task...')
                     asyncio_tasks['console'].cancel()
-                    try:
-                        await asyncio_tasks['console']
-                    except asyncio.exceptions.CancelledError as e:
-                        print(e)
+                    await asyncio_tasks['console']
                     log.info('All tasks stopped. Exiting...')
-                except RuntimeError:
-                    pass
                 except Exception as e:
                     exception_message(e)
-                finally:
-                    raise SystemExit(0)
             case _:
                 log.info('Unrecognized command "%s"', user_input)
 

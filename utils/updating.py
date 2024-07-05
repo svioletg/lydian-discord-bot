@@ -1,5 +1,6 @@
 """Automatic updater for the bot. Checks the locally stored version number against the latest release up on GitHub,
-and replaces local files if a new version exists."""
+and replaces local files if a new version exists.
+"""
 
 # Standard imports
 import os
@@ -53,7 +54,8 @@ class Release:
     @staticmethod
     def get_version_tuple(tag_string: str) -> tuple[int, ...]:
         """Turns a tag string (e.g. `"1.8.3c") into a tuple of integers. (e.g. `(1, 8, 3, 3)`)
-        Version extension letters will be turned into integers based off their alphabetical position."""
+        Version extension letters will be turned into integers based off their alphabetical position.
+        """
         version: list = tag_string.split('.')
         if version[0] == 'dev':
             return (-1, int(version[1]))
@@ -64,7 +66,8 @@ class Release:
 
 def get_latest_release() -> Release | None:
     """Retrieves the latest release on the Lydian repository and stores it along with the detected local version.
-    If no release could be found, returns `None`."""
+    If no release could be found, returns `None`.
+    """
     return Release.from_url('https://api.github.com/repos/svioletg/lydian-discord-bot/releases/latest')
 
 def main():
