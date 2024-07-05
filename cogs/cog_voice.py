@@ -444,12 +444,10 @@ class Voice(commands.Cog):
     @commands.check(is_command_enabled)
     @commands.check(author_in_vc)
     async def stop(self, ctx: commands.Context): # pylint: disable=unused-argument
-        """Stops audio and clears the remaining queue."""
-        log.info('Stopping audio and clearing the queue...')
+        """Stops the player, and clears the remaining queue."""
+        log.info('Stopping player and clearing the queue...')
         self.voice_client.stop()
         self.media_queue.clear()
-        self.current_item = None
-        self.previous_item = None
 
     @commands.command(aliases=command_aliases('nowplaying'))
     @commands.check(is_command_enabled)
@@ -620,7 +618,12 @@ class Voice(commands.Cog):
                     if not media.sp:
                         await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
                         return
-                    media_list = media.PlaylistInfo.from_spotify_url(url)
+                    try:
+                        media_list = media.PlaylistInfo.from_spotify_url(url)
+                    except media.MediaError:
+                        await self.queue_msg.edit(embed=embedq(f'{EmojiStr.cancel} Couldn\'t retrieve playlist from Spotify.',
+                            'The playlist may be private, or the link may be invalid.'))
+                        return
                 elif re.findall(r"https://soundcloud\.com/\w+/sets/", url):
                     media_list = media.soundcloud_set(url)
                 elif re.findall(r"https://\w+\.bandcamp\.com/album/", url):
@@ -863,6 +866,6 @@ class Voice(commands.Cog):
         specifically to be used as the `after` argument for a player source. Should not be used alone.
         """
         log.debug('Player has finished.')
-        if (self.previous_item) and (self.play_history[0] != self.previous_item):
-            self.play_history.appendleft(self.previous_item)
+        if (self.current_item) and (self.play_history[0] != self.current_item):
+            self.play_history.appendleft(self.current_item)
         await self.advance_queue(ctx)
