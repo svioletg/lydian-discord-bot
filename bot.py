@@ -66,6 +66,8 @@ if __name__ == '__main__':
             log.warning('### There is a new release available: %s', latest_release.tag)
             if latest_release.is_prerelease:
                 log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+            # Anything in the release notes preceded with "###" will be shown here,
+            # usually for warnings of breaking changes or as a general summary
             if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
                 print(f'\n{important_notes}\n')
             log.warning('### Use "update.py" or "update.bat" to update.')
