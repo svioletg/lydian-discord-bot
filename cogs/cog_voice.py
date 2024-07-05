@@ -275,7 +275,7 @@ class Voice(commands.Cog):
     @commands.command(aliases=command_aliases('history'))
     @commands.check(is_command_enabled)
     async def history(self, ctx: commands.Context):
-        """Shows the 5 most recently played tracks."""
+        """Shows recently played tracks, up to the amount set in configuration."""
         if not any(item is not None for item in self.play_history):
             await ctx.send(embed=embedq(EmojiStr.cancel + ' Play history is empty.'))
             return
@@ -747,7 +747,7 @@ class Voice(commands.Cog):
         """
         if not self.voice_client.is_connected():
             await self.bot.change_presence(activity=Activity(
-                name=f'Nothing! Use `{self.bot.command_prefix}play` to start',
+                name=f'Nothing! Use `{str(self.bot.command_prefix)}play` to start',
                 type=ActivityType.listening,
                 state='Queue is empty.'
                 ))
