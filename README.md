@@ -1,7 +1,5 @@
 # Lydian <!-- omit in toc -->
 
-## You are on the `dev` branch. Switch to the `master` branch here: https://github.com/svioletg/lydian-discord-bot/tree/master <!-- omit in toc -->
-
 Full changelog: [changelog.md](https://github.com/svioletg/lydian-discord-bot/blob/main/docs/changelog.md)
 
 See progress on bug fixes and new features here: [Lydian Taskboard](https://github.com/users/svioletg/projects/3/views/1)
