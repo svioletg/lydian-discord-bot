@@ -111,7 +111,7 @@ bot = commands.Bot(
     command_prefix=commands.when_mentioned_or(command_prefix),
     description='',
     intents=intents,
-    help_command = PrettyHelp(False, color=discord.Color(cfg.EMBED_COLOR))
+    help_command=PrettyHelp(False, color=discord.Color(cfg.EMBED_COLOR), verify_checks=False)
 )
 
 @bot.event
