@@ -24,6 +24,7 @@ from discord.ext import commands
 from pretty_help import PrettyHelp
 
 # Local imports
+from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs import cog_general, cog_voice
 from cogs.common import EmojiStr, SilentCancel, embedq
@@ -91,9 +92,6 @@ intents.reactions = True
 intents.guilds = True
 intents.members = True
 
-# Set prefix
-command_prefix = cfg.PUBLIC_PREFIX if cfg.PUBLIC else cfg.DEV_PREFIX
-
 # Retrieve bot token
 log.info('Using token from "%s"...', cfg.TOKEN_FILE_PATH)
 
@@ -108,7 +106,7 @@ else:
     raise SystemExit(0)
 
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or(command_prefix),
+    command_prefix=commands.when_mentioned_or(cfg.COMMAND_PREFIX),
     description='',
     intents=intents,
     help_command=PrettyHelp(False, color=discord.Color(cfg.EMBED_COLOR), verify_checks=False)
@@ -156,15 +154,11 @@ async def on_error(event_name, *args, **kwargs): # pylint: disable=unused-argume
 async def on_ready():
     "Runs when the bot is ready to start."
     log.info('Logged in as %s (ID: %s)', bot.user, bot.user.id)
-    await bot.change_presence(activity=discord.Activity(
-        name=f'Nothing! Use `{command_prefix}play` to start',
-        type=discord.ActivityType.listening,
-        state='Queue is empty.'
-        ))
+    await bot.change_presence(activity=BotPresence.idle())
     log.info('=' * 20)
     log.info('Ready!')
 
-# Begin main thread
+# Define threads, get ready to start
 
 asyncio_tasks: dict[str, asyncio.Task] = {}
 
