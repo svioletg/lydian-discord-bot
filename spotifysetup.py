@@ -1,16 +1,15 @@
-CLIENT_ID = input('Client ID: ')
-CLIENT_SECRET = input('Client secret: ')
+import json
+
+CLIENT_ID = input('Client ID: ').strip()
+CLIENT_SECRET = input('Client secret: ').strip()
 
 with open('spotify_config.json', 'w', encoding='utf-8') as f:
-    f.write(f"""
-{
-    "spotify":
-    {
-        "client_id": "{CLIENT_ID}",
-        "client_secret": "{CLIENT_SECRET}"
-    }
-}
-
-""")
+    json.dump({
+        "spotify":
+        {
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET
+        }
+    }, f)
 
 input('Saved to spotify_config.json; press ENTER to exit...')
