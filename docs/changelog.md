@@ -75,6 +75,7 @@ Features
 - `-faq` command added to get the bot's FAQ page
 - `-issues` command added to the get the bot's issues page
 - User configuration will now be checked and validation on startup, to catch surface-level issues and warn of them or exit the script if it would not be able to continue
+- The bot now shows "Listening to [song title]" as its user status
 
 Fixes
 - Using the `stop` console command will now suppress the resulting `CancelledError`
@@ -101,6 +102,7 @@ Other
 - Changes in `requirements.txt`:
 
 ```diff
++   ADDED: arrow           == 1.3.0
 +   ADDED: colorlog        == 6.8.2*
 + UPDATED: aioconsole      == 0.7.1
 + UPDATED: discord.py      == 2.4.0
