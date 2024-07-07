@@ -1,10 +1,12 @@
 # Lydian / Changelog
 
-## 2.0.0-pre.1
+## 2.0.0-pre.3
 
-> *This is a **pre-release**, and may not be fully stable or reliable for regular use. This changelog will likely continue to change until this release is stable.*
+### *This is a **pre-release**, and may not be fully stable or reliable for regular use. This changelog will continue to update until this release is stable.*
 
-> *2024.mm.dd / dev.34*
+> *dev.34*
+
+> *2024.07.07 (latest pre-release)*
 
 Developer
 - Docstrings have been added to most functions, classes, and modules
