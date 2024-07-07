@@ -22,6 +22,7 @@ from discord import (Activity, ActivityType, Embed, FFmpegPCMAudio, Member,
 from discord.ext import commands
 
 # Local imports
+from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs.common import (EmojiStr, SilentCancel, command_aliases, edit_or_send,
                          embedq, is_command_enabled, prompt_for_choice)
@@ -746,11 +747,7 @@ class Voice(commands.Cog):
         Set to run whenever the audio player finishes its current item.
         """
         if not self.voice_client.is_connected():
-            await self.bot.change_presence(activity=Activity(
-                name=f'Nothing! Use `{str(self.bot.command_prefix)}play` to start',
-                type=ActivityType.listening,
-                state='Queue is empty.'
-                ))
+            await self.bot.change_presence(activity=BotPresence.idle())
             return
 
         if (not self.advance_lock) and (skipping or not self.voice_client.is_playing()):
@@ -780,11 +777,7 @@ class Voice(commands.Cog):
                         else (self.current_item or self.media_queue.pop(0)), ctx)
                 elif not self.media_queue:
                     self.voice_client.stop()
-                    await self.bot.change_presence(activity=Activity(
-                        name=f'Nothing! Use `{self.bot.command_prefix}play` to start',
-                        type=ActivityType.listening,
-                        state='Queue is empty.'
-                        ))
+                    await self.bot.change_presence(activity=BotPresence.idle())
                 else:
                     item_index = 0 if not self.media_queue.roulette_mode else random.randint(0, len(self.media_queue) - 1)
                     await self.make_and_start_player(self.media_queue.pop(item_index), ctx)
@@ -867,11 +860,7 @@ class Voice(commands.Cog):
 
         if item != self.previous_item:
             # Don't re-send a now playing message if we're just looping this track
-            await self.bot.change_presence(activity=Activity(
-                name=item.info.title,
-                type=ActivityType.listening,
-                state=f'{len(self.media_queue)} items left in queue.'
-                )) 
+            await self.bot.change_presence(activity=BotPresence.playing(item, self.media_queue))
             self.now_playing_msg = await ctx.send(embed=self.embed_now_playing(show_elapsed=False))
 
         if self.queue_msg:

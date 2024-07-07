@@ -24,6 +24,7 @@ from discord.ext import commands
 from pretty_help import PrettyHelp
 
 # Local imports
+from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs import cog_general, cog_voice
 from cogs.common import EmojiStr, SilentCancel, embedq
@@ -55,17 +56,16 @@ if __name__ == '__main__':
         if VERSION.startswith('dev.'):
             log.warning('You are running a development version.')
 
-        latest_release = updating.get_latest_release()
+        latest_release = updating.Release.get_latest_release()
         if not latest_release:
             log.warning('Could not retrieve latest release.')
             return
-        current = updating.Release.get_version_tuple(VERSION)
 
         # Check for an outdated version
-        if current < latest_release.version:
+        if updating.is_outdated(latest_release.tag, VERSION):
             log.warning('### There is a new release available: %s', latest_release.tag)
             if latest_release.is_prerelease:
-                log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+                log.warning('### This is a PRE-RELEASE, it may not be fully stable yet.')
             # Anything in the release notes preceded with "###" will be shown here,
             # usually for warnings of breaking changes or as a general summary
             if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
@@ -91,9 +91,6 @@ intents.reactions = True
 intents.guilds = True
 intents.members = True
 
-# Set prefix
-command_prefix = cfg.PUBLIC_PREFIX if cfg.PUBLIC else cfg.DEV_PREFIX
-
 # Retrieve bot token
 log.info('Using token from "%s"...', cfg.TOKEN_FILE_PATH)
 
@@ -108,7 +105,7 @@ else:
     raise SystemExit(0)
 
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or(command_prefix),
+    command_prefix=commands.when_mentioned_or(cfg.COMMAND_PREFIX),
     description='',
     intents=intents,
     help_command=PrettyHelp(False, color=discord.Color(cfg.EMBED_COLOR), verify_checks=False)
@@ -156,15 +153,11 @@ async def on_error(event_name, *args, **kwargs): # pylint: disable=unused-argume
 async def on_ready():
     "Runs when the bot is ready to start."
     log.info('Logged in as %s (ID: %s)', bot.user, bot.user.id)
-    await bot.change_presence(activity=discord.Activity(
-        name=f'Nothing! Use `{command_prefix}play` to start',
-        type=discord.ActivityType.listening,
-        state='Queue is empty.'
-        ))
+    await bot.change_presence(activity=BotPresence.idle())
     log.info('=' * 20)
     log.info('Ready!')
 
-# Begin main thread
+# Define threads, get ready to start
 
 asyncio_tasks: dict[str, asyncio.Task] = {}
 
