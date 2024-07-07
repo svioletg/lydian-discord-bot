@@ -9,10 +9,11 @@ import shutil
 import urllib.request
 from pathlib import Path
 from string import ascii_lowercase
-from typing import Self
+from typing import NamedTuple, Self
 from zipfile import ZipFile
 
 # External imports
+import arrow
 import colorama
 import requests
 
@@ -31,7 +32,6 @@ class Release:
         """
         self.name: str = response_json['name']
         self.tag: str = response_json['tag_name']
-        self.version: tuple[int, ...] = self.get_version_tuple(self.tag)
 
         self.url: str = response_json['html_url']
         self.zip: str = response_json['zipball_url']
@@ -41,55 +41,59 @@ class Release:
         self.is_draft: bool = response_json['draft']
 
         self.text: str = response_json['body']
-        self.date: str = re.match(r"(\d{4}-\d{2}-\d{2})", response_json['published_at'])[0] # type: ignore
+        self.date: arrow.Arrow = arrow.get(response_json['published_at'])
 
     @classmethod
     def from_url(cls, github_url: str) -> Self | None:
         """Creates a `Release` from a GitHub API release URL."""
         response_json = requests.get(github_url, timeout=5).json()
-        if response_json['message'] == 'Not Found':
+        if response_json.get('message', '') == 'Not Found':
             return None
         return cls(response_json)
 
-    @staticmethod
-    def get_version_tuple(tag_string: str) -> tuple[int, ...]:
-        """Turns a tag string (e.g. `"1.8.3c") into a tuple of integers. (e.g. `(1, 8, 3, 3)`)
-        Version extension letters will be turned into integers based off their alphabetical position.
-        """
-        version: list = tag_string.split('.')
-        if version[0] == 'dev':
-            return (-1, int(version[1]))
-        if version_ext := re.findall(r"([a-z])", version[-1]):
-            version[-1] = re.sub(r"([a-z])", '', version[-1])
-            version.append(ascii_lowercase.index(version_ext[0]) + 1)
-        return tuple(map(int, version))
+    @classmethod
+    def from_tag(cls, tag: str) -> Self | None:
+        """Creates a `Release` from a tag name."""
+        return cls.from_url(f'https://api.github.com/repos/svioletg/lydian-discord-bot/releases/tags/{tag}')
 
-def get_latest_release() -> Release | None:
-    """Retrieves the latest release on the Lydian repository and stores it along with the detected local version.
-    If no release could be found, returns `None`.
-    """
-    return Release.from_url('https://api.github.com/repos/svioletg/lydian-discord-bot/releases/latest')
+    @classmethod
+    def get_latest_release(cls) -> Self | None:
+        """Retrieves the latest release on the Lydian repository and stores it along with the detected local version.
+        If no release could be found, returns `None`.
+        """
+        response_json = requests.get('https://api.github.com/repos/svioletg/lydian-discord-bot/releases', timeout=5).json()
+        if not response_json:
+            return None
+        return cls(response_json[0])
+
+def is_outdated(tag_a: str | Release, tag_b: str | Release) -> bool:
+    """Checks if the first tag's release date is more recent than the second. Returns `True` if either tag does not exist."""
+    release_a = Release.from_tag(tag_a) if isinstance(tag_a, str) else tag_a
+    release_b = Release.from_tag(tag_b) if isinstance(tag_b, str) else tag_b
+    date_a = arrow.get(release_a.date) if release_a else None
+    date_b = arrow.get(release_b.date) if release_b else None
+    return (date_a > date_b) if date_a and date_b else True
 
 def main():
     print('Checking...')
 
-    latest = get_latest_release()
-    local = Release.get_version_tuple(VERSION)
+    latest = Release.get_latest_release()
+    local_tag = VERSION
 
-    if local[0] == -1:
-        print('Development version detected; can\'t compare to latest.')
+    if local_tag[0].startswith('dev.'):
+        print('Development version detected; won\'t compare to latest.')
         print('Exiting.')
         return
 
-    if local == latest.version:
+    if local_tag == latest.tag:
         print('You are up to date.')
-        print(f'Current: {plt.lime}{VERSION}{plt.reset} = Latest: {plt.lime}{latest.tag}')
+        print(f'Current: {plt.lime}{local_tag}{plt.reset} = Latest: {plt.lime}{latest.tag}')
         print('Exiting.')
         return
 
-    if latest.version > local:
+    if is_outdated(latest.tag, local_tag):
         print('A new update is available.')
-        print(f'Current: {plt.gold}{VERSION}{plt.reset} < Latest: {plt.lime}{latest.tag}')
+        print(f'Current: {plt.gold}{local_tag}{plt.reset} < Latest: {plt.lime}{latest.tag}')
 
     if input('\nUpdate now? (y/n) ').strip().lower() != 'y':
         print('Exiting.')

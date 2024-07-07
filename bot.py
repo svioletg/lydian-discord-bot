@@ -56,17 +56,16 @@ if __name__ == '__main__':
         if VERSION.startswith('dev.'):
             log.warning('You are running a development version.')
 
-        latest_release = updating.get_latest_release()
+        latest_release = updating.Release.get_latest_release()
         if not latest_release:
             log.warning('Could not retrieve latest release.')
             return
-        current = updating.Release.get_version_tuple(VERSION)
 
         # Check for an outdated version
-        if current < latest_release.version:
+        if updating.is_outdated(latest_release.tag, VERSION):
             log.warning('### There is a new release available: %s', latest_release.tag)
             if latest_release.is_prerelease:
-                log.warning('### This is a *pre-release*, it may not be fully stable yet.')
+                log.warning('### This is a PRE-RELEASE, it may not be fully stable yet.')
             # Anything in the release notes preceded with "###" will be shown here,
             # usually for warnings of breaking changes or as a general summary
             if important_notes := '\n'.join(re.findall(r"###.*", latest_release.text.split('---')[0])):
