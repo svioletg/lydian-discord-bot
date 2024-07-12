@@ -17,11 +17,13 @@ from typing import Callable, Optional, Self, cast
 from pydub import AudioSegment
 import requests
 import yt_dlp
-from discord import (Embed, FFmpegPCMAudio, Member, Message,
-                     PCMVolumeTransformer, User, VoiceClient, VoiceState)
+from discord import (Activity, ActivityType, Embed, FFmpegPCMAudio, Member,
+                     Message, PCMVolumeTransformer, User, VoiceClient,
+                     VoiceState)
 from discord.ext import commands
 
 # Local imports
+from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs.common import (EmojiStr, SilentCancel, command_aliases, edit_or_send,
                          embedq, is_command_enabled, prompt_for_choice)
@@ -138,7 +140,8 @@ class PlaylistLimitError(Exception):
 async def author_in_vc(ctx: commands.Context) -> bool:
     """Checks whether the command author is connected to a voice channel before allowing it to run.
 
-    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass."""
+    If the author *is* connected, they must be connected to the same voice channel the bot is in for this to pass.
+    """
     command_author = cast(Member, ctx.author)
     if not command_author.voice:
         log.info('Command author not connected to voice, cancelling.')
@@ -157,7 +160,6 @@ async def author_in_vc(ctx: commands.Context) -> bool:
 
 class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
-
     def __init__(self, bot: commands.bot.Bot):
         self.bot = bot
         self.voice_client: Optional[VoiceClient] = None
@@ -194,6 +196,9 @@ class Voice(commands.Cog):
             while True:
                 await asyncio.sleep(TICK)
                 timeout_counter += TICK
+
+                if self.voice_client is None:
+                    break
 
                 if self.voice_client is None:
                     break
@@ -290,7 +295,7 @@ class Voice(commands.Cog):
     @commands.command(aliases=command_aliases('history'))
     @commands.check(is_command_enabled)
     async def history(self, ctx: commands.Context):
-        """Shows the 5 most recently played tracks."""
+        """Shows recently played tracks, up to the amount set in configuration."""
         if not any(item is not None for item in self.play_history):
             await ctx.send(embed=embedq(EmojiStr.cancel + ' Play history is empty.'))
             return
@@ -310,7 +315,8 @@ class Voice(commands.Cog):
         """Moves the queue item located at `origin` to `destination`.
 
         @origin: Index of the queue item to be moved.
-        @destination: What spot the item should be moved to."""
+        @destination: What spot the item should be moved to.
+        """
         if self.media_queue == []:
             await ctx.send(embed=CommonMsg.queue_is_empty())
             return
@@ -427,7 +433,8 @@ class Voice(commands.Cog):
         """Toggles looping the current track. If no argument is given, looping will be turned on if its currently off, and vice versa.
         Alternatively, you can use "loop on" or "loop off" to toggle it explicitly.
 
-        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that."""
+        Using `skip` while looping is enabled will skip to the next track in queue, and begin looping that.
+        """
         if toggle in ['on', 'off']:
             self.media_queue.is_looping = {'on': True, 'off': False}[toggle]
             log.info('Looping changed to %s.', self.media_queue.is_looping)
@@ -458,12 +465,10 @@ class Voice(commands.Cog):
     @commands.check(is_command_enabled)
     @commands.check(author_in_vc)
     async def stop(self, ctx: commands.Context): # pylint: disable=unused-argument
-        """Stops audio and clears the remaining queue."""
-        log.info('Stopping audio and clearing the queue...')
+        """Stops the player, and clears the remaining queue."""
+        log.info('Stopping player and clearing the queue...')
         self.voice_client.stop()
         self.media_queue.clear()
-        self.current_item = None
-        self.previous_item = None
 
     @commands.command(aliases=command_aliases('nowplaying'))
     @commands.check(is_command_enabled)
@@ -665,7 +670,12 @@ class Voice(commands.Cog):
                     if not media.sp:
                         await ctx.send(embed=CommonMsg.spotify_functions_unavailable())
                         return
-                    media_list = media.PlaylistInfo.from_spotify_url(url)
+                    try:
+                        media_list = media.PlaylistInfo.from_spotify_url(url)
+                    except media.MediaError:
+                        await self.queue_msg.edit(embed=embedq(f'{EmojiStr.cancel} Couldn\'t retrieve playlist from Spotify.',
+                            'The playlist may be private, or the link may be invalid.'))
+                        return
                 elif re.findall(r"https://soundcloud\.com/\w+/sets/", url):
                     media_list = media.soundcloud_set(url)
                 elif re.findall(r"https://\w+\.bandcamp\.com/album/", url):
@@ -799,6 +809,7 @@ class Voice(commands.Cog):
         Set to run whenever the audio player finishes its current item.
         """
         if not self.voice_client.is_connected():
+            await self.bot.change_presence(activity=BotPresence.idle())
             return
 
         if (not self.advance_lock) and (skipping or not self.voice_client.is_playing()):
@@ -828,6 +839,7 @@ class Voice(commands.Cog):
                         else (self.current_item or self.media_queue.pop(0)), ctx)
                 elif not self.media_queue:
                     self.voice_client.stop()
+                    await self.bot.change_presence(activity=BotPresence.idle())
                 else:
                     item_index = 0 if not self.media_queue.roulette_mode else random.randint(0, len(self.media_queue) - 1)
                     await self.make_and_start_player(self.media_queue.pop(item_index), ctx)
@@ -910,6 +922,7 @@ class Voice(commands.Cog):
 
         if item != self.previous_item:
             # Don't re-send a now playing message if we're just looping this track
+            await self.bot.change_presence(activity=BotPresence.playing(item, self.media_queue))
             self.now_playing_msg = await ctx.send(embed=self.embed_now_playing(show_elapsed=False))
 
         if self.queue_msg:

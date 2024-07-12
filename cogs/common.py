@@ -64,7 +64,8 @@ async def edit_or_send(ctx: commands.Context, target: Optional[Message], **kwarg
     """Checks if the given Message object exists (is `None` or not), edits it if so, creates and sends a new message if not.
     Returns the edited or sent message. **kwargs will be passed to the message constructor.
 
-    @target: `Message` to target for editing"""
+    @target: `Message` to target for editing
+    """
     try:
         message: Message = await target.edit(**kwargs) if target else await ctx.send(**kwargs)
     except NotFound:

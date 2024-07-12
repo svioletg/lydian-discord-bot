@@ -20,7 +20,8 @@ plt = Palette()
 
 class Stopwatch:
     """Basic debugging tool for timing actions. While `time_func()` from this same module is meant to measure specific functions/callables,
-    the usage of the `Stopwatch` class is more for usage in before and after lines, when that is more convenient."""
+    the usage of the `Stopwatch` class is more for usage in before and after lines, when that is more convenient.
+    """
     def __init__(self, name: str='generic'):
         """
         @name: A name to assign this instance. Will be displayed upon using `lap()`, no other purpose.

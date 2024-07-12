@@ -1,8 +1,12 @@
 # Lydian / Changelog
 
-## 2.0.0
+## 2.0.0-pre.3
 
-> *2024.mm.dd / dev.34*
+### *This is a **pre-release**, and may not be fully stable or reliable for regular use. This changelog will continue to update until this release is stable.*
+
+> *dev.34*
+
+> *2024.07.07 (latest pre-release)*
 
 Developer
 - Docstrings have been added to most functions, classes, and modules
@@ -64,7 +68,7 @@ Developer
 
 Features
 - A "roulette mode" has been added, which if enabled with the `-roulette` command (which will flip the switch by default, or you can explicitly use `-roulette on` or `-roulette off`) will choose a random song to play from the current queue each time a song finishes, rather than going in order like normal
-- "Now playing" messages will now show the track's thumbnail in its embed ([vMB #70](https://github.com/svioletg/viMusBot/issues/70))
+- "Now playing" messages will now show the track's thumbnail in its embed ([#70](https://github.com/svioletg/viMusBot/issues/70))
 - Multiple messages are prefixed with relevant emoji to act as status icons
 - `-faq` command added to get the bot's FAQ page
 - `-issues` command added to the get the bot's issues page
@@ -126,6 +130,9 @@ Versions are numbered as X.Y.Z, where:
 
 ### Hotfix Versions
 Hotfixes are different from normal releases in that they *replace* their respective version's release instead of simply adding onto the list. This is normally done for security vulnerabilities, or for any issues in the original version that completely prevent usage of the bot. Hotfixes simply add a letter to the end of their version number, e.g 1.8.3's first hotfix was 1.8.3a, its second hotfix became 1.8.3b, and so on. If a hotfix is released, it is usually recommended to update right away.
+
+### Pre-release Versions
+Occasionally, new versions are preceded by one or more pre-release versions, indicating that this release seems *mostly* stable, but there are still some uncertainties to be worked out, or broader testing is needed. Pre-releases are denoted by a "-pre.X" suffix, where X begins at one and increases for every new pre-release version published. Pre-release versions will be deleted from the releases page once a stable release has been published.
 
 ### Development Versions
 The `dev` branch is used for tracking work on new versions, and its code is never considered stable or suitable for general usage. When new versions are being worked on, a separate version system is used — in this case, a single incrementing number is used for each new version being worked on. Public release version numbers are usually decided right upon their release, and the scope of an update may change drastically, so one number is used instead of trying to predict the next public version number. `1.0.0` would have been `dev.1` although this system wasn't in place at that time, and `1.8.3` was `dev.32`, as an example.

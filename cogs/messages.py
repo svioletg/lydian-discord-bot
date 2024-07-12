@@ -9,6 +9,7 @@ from discord import Embed
 # Local imports
 from cogs.common import EmojiStr, embedq
 
+
 @dataclass
 class CommonMsg:
     """Common bot responses kept here for convenience."""

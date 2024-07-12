@@ -91,6 +91,7 @@ PUBLIC                  : bool      = check_type('public', bool)
 TOKEN_FILE_PATH         : str       = check_type('token-file', str)
 PUBLIC_PREFIX           : str       = check_type('prefixes.public', str)
 DEV_PREFIX              : str       = check_type('prefixes.developer', str)
+COMMAND_PREFIX          : str       = PUBLIC_PREFIX if PUBLIC else DEV_PREFIX
 EMBED_COLOR             : int       = int(get('embed-color'), 16) # A ValueError here means this isn't a valid hex code
 INACTIVITY_TIMEOUT_MINS : int       = check_type('inactivity-timeout', int)
 CLEANUP_EXTENSIONS      : list[str] = check_type('auto-remove', list)

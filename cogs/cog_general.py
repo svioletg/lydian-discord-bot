@@ -47,5 +47,5 @@ class General(commands.Cog):
     @commands.command(aliases=command_aliases('issues'))
     @commands.check(is_command_enabled)
     async def issues(self, ctx: commands.Context):
-        """Returns a link to Lydian's FAQ page."""
+        """Returns a link to Lydian's issues page on GitHub."""
         await ctx.send(embed=embedq('Lydian Issues page: https://github.com/svioletg/lydian-discord-bot/issues'))

@@ -15,6 +15,7 @@ from sclib import SoundcloudAPI
 from sclib import Track as SoundcloudTrack
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
+from spotipy.exceptions import SpotifyException
 from yt_dlp import YoutubeDL
 from ytmusicapi import YTMusic
 
@@ -33,7 +34,8 @@ plt = Palette()
 class MediaSource(str):
     """String subclass that represents a media source. Exists only for typing purposes.
 
-    Every `MediaSource` that exists should be supported by `MediaInfo`."""
+    Every `MediaSource` that exists should be supported by `MediaInfo`.
+    """
     def __repr__(self):
         return f'<MediaSource "{self}">'
 
@@ -317,7 +319,10 @@ class PlaylistInfo(MediaInfo):
     @classmethod
     def from_spotify_url(cls, url: str) -> Self:
         """Creates a new `PlaylistInfo` from a given Spotify URL."""
-        return cls(SPOTIFY, sp.playlist(url))
+        try:
+            return cls(SPOTIFY, sp.playlist(url))
+        except SpotifyException as e:
+            raise MediaError('Could not retrieve playlist from Spotify') from e
 
 def track_list_duration(track_list: list[TrackInfo]) -> int:
     """Return the sum of track lengths from a list of `TrackInfo` objects."""
