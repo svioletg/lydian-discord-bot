@@ -14,23 +14,23 @@ from pathlib import Path
 from typing import Callable, Optional, Self, cast
 
 # External imports
-from pydub import AudioSegment
 import requests
 import yt_dlp
-from discord import (Activity, ActivityType, Embed, FFmpegPCMAudio, Member,
+from discord import (Embed, FFmpegPCMAudio, Member,
                      Message, PCMVolumeTransformer, User, VoiceClient,
                      VoiceState)
 from discord.ext import commands
+from pydub import AudioSegment
 
 # Local imports
-from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs.common import (EmojiStr, SilentCancel, command_aliases, edit_or_send,
                          embedq, is_command_enabled, prompt_for_choice)
 from cogs.messages import CommonMsg
+from cogs.presence import BotPresence
 from cogs.test_voice import VoiceTest
 from utils import media
-from utils.miscutil import Stopwatch, seconds_to_hms
+from utils.miscutil import seconds_to_hms
 
 log = logging.getLogger('lydian')
 
@@ -167,8 +167,9 @@ class Voice(commands.Cog):
         self.play_history: deque[Optional[QueueItem]] = deque([None, None, None, None, None], maxlen=5)
         self.current_item: Optional[QueueItem] = None
         self.previous_item: Optional[QueueItem] = None
-        self.files_to_del: list[Path] = []
         self.player: Optional[YTDLSource | FileAudioSource] = None
+
+        self.files_to_del: list[Path] = []
 
         self.advance_lock: bool = False
         self.after_advance_queue: Optional[Callable] = None
@@ -178,6 +179,9 @@ class Voice(commands.Cog):
         self.paused_at: float = 0.0
         self.pause_duration: float = 0.0
         self.audio_seconds_elapsed: float = 0.0
+        self.swap_to_modified: bool = False
+        """Needs to be set `True` if we want to swap the current audio file to its modified version,
+        and prevent the queue from normally advancing."""
 
         self.now_playing_msg: Optional[Message] = None
         self.queue_msg: Optional[Message] = None
@@ -503,9 +507,10 @@ class Voice(commands.Cog):
         modified[start_ms:].export(self.modified_fname(filepath), format=file_ext)
 
         msg = await msg.edit(embed=embedq(subtext='Preparing player...', base=msg.embeds[0]))
+        self.swap_to_modified = True
         if self.voice_client.is_playing():
             self.voice_client.stop()
-        
+
         self.audio_seconds_elapsed = start_ms / 1000
 
         msg = await msg.edit(embed=embedq(f'Speed changed to {speed}x', 'Playing shortly...'))
@@ -933,14 +938,22 @@ class Voice(commands.Cog):
         specifically to be used as the `after` argument for a player source. Should not be used alone.
         """
         log.debug('Player has finished.')
-        if (self.previous_item) and (self.play_history[0] != self.previous_item):
-            self.play_history.appendleft(self.previous_item)
-        newfile = self.modified_fname(str(self.player.filepath))
-        print(newfile)
-        print(not Path(newfile).is_file())
-        if not Path(newfile).is_file():
-            print('no file at', newfile)
-            raise ValueError('no file at', newfile)
-        self.player = await FileAudioSource.from_path(newfile)
-        self.voice_client.play(self.player, after=lambda e: asyncio.run_coroutine_threadsafe(self.handle_player_stop(ctx), self.bot.loop))
-        # await self.advance_queue(ctx)
+        # Add to play history if it's not the same item as the last one
+        if (self.current_item) and (self.play_history[0] != self.current_item):
+            self.play_history.appendleft(self.current_item)
+
+        # Swap file for modified one if we're supposed to
+        if self.swap_to_modified:
+            newfile = self.modified_fname(str(self.player.filepath))
+            print(newfile)
+            print(not Path(newfile).is_file())
+            if not Path(newfile).is_file():
+                log.error('No file at %s', newfile)
+                log.error('Going to advance queue instead.')
+                await self.advance_queue(ctx)
+            else:
+                self.player = await FileAudioSource.from_path(newfile)
+                self.voice_client.play(self.player, after=lambda e: asyncio.run_coroutine_threadsafe(self.handle_player_stop(ctx), self.bot.loop))
+        else:
+            await self.advance_queue(ctx)
+        self.swap_to_modified = False
