@@ -80,6 +80,7 @@ class YTDLSource(PCMVolumeTransformer):
             raise e
 
         filename = data['url'] if stream else ytdl.prepare_filename(data) # type: ignore
+        print(Path(filename).suffix)
         src = filename.split('-#-')[0] # pylint: disable=unused-variable
         ID = filename.split('-#-')[1] # pylint: disable=unused-variable, invalid-name
         return cls(FFmpegPCMAudio(filename, **ffmpeg_options), data=data, filepath=Path(filename)) # type: ignore
@@ -483,9 +484,9 @@ class Voice(commands.Cog):
         else:
             await ctx.send(embed=embedq('Nothing is playing.'))
 
-    @commands.command(aliases=command_aliases('change'))
+    @commands.command(aliases=command_aliases('speed'))
     @commands.check(is_command_enabled)
-    async def change(self, ctx: commands.Context, speed: float):
+    async def spd(self, ctx: commands.Context, speed: float):
         """Apply changes and effects to the currently playing audio."""
         file_ext = self.player.file_ext
         filepath = self.original_fname(str(self.player.filepath))
@@ -499,12 +500,12 @@ class Voice(commands.Cog):
 
         modified = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}) # pylint: disable=protected-access
         print(self.modified_fname(filepath, for_source=True))
-        modified.export(self.modified_fname(filepath, for_source=True), format=file_ext)
+        modified.export(self.modified_fname(filepath, for_source=True), format='mp3')
 
         # Add a bit of time to compensate for exporting
         start_ms = ((self.audio_seconds_elapsed + 1) / speed) * 1000
         print(self.modified_fname(filepath))
-        modified[start_ms:].export(self.modified_fname(filepath), format=file_ext)
+        modified[start_ms:].export(self.modified_fname(filepath), format='mp3')
 
         msg = await msg.edit(embed=embedq(subtext='Preparing player...', base=msg.embeds[0]))
         self.swap_to_modified = True
@@ -772,14 +773,21 @@ class Voice(commands.Cog):
 
     def original_fname(self, filename: str) -> str:
         """Gets the original filename of the currently playing file."""
-        return re.sub(r"^MODIFIED.*@", '', str(filename))
+        matches = [*Path().glob(re.sub(r"^MODIFIED.*@", '', str(filename)).replace(Path(filename).suffix, '.*'))]
+        if not matches:
+            raise ValueError(f'No original file found for {filename}')
+        if not matches[0].is_file():
+            raise ValueError(f'{matches[0]} is not a file')
+        return str(matches[0])
 
-    def modified_fname(self, filename: str, for_source: bool=False) -> str:
+    def modified_fname(self, filename: str, new_ext: str='mp3', for_source: bool=False) -> str:
         """Puts the given filename through the template used to designate files with effects applied.
         Just simple string concatenation, but its kept in a function to make changing this later easier, if needed.
 
+        @new_ext: The extension to use for the modified file. Defaults to `mp3`.
+            Some formats aren't compatible with `pydub`, like `m4a`, so a safe bet like `mp3` is used.
         @for_source: Gives back a filename to be referenced for original length or properties, instead of the truncated file."""
-        filename = self.original_fname(filename)
+        filename = self.original_fname(filename).replace(Path(filename).suffix, f'.{new_ext}')
         return ('MODIFIED@' + str(filename)) if not for_source else ('MODIFIED@SRC@' + str(filename))
 
     def get_queued_by_text(self, member: Member) -> str:
