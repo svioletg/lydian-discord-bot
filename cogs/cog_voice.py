@@ -16,14 +16,12 @@ from typing import Callable, Optional, Self, cast
 # External imports
 import requests
 import yt_dlp
-from discord import (Activity, ActivityType, Embed, FFmpegPCMAudio, Member,
-                     Message, PCMVolumeTransformer, User, VoiceClient,
-                     VoiceState)
+from discord import (Embed, FFmpegPCMAudio, Member, Message,
+                     PCMVolumeTransformer, User, VoiceClient, VoiceState)
 from discord.ext import commands
 from pydub import AudioSegment
 
 # Local imports
-from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs.common import (EmojiStr, SilentCancel, command_aliases, edit_or_send,
                          embedq, is_command_enabled, prompt_for_choice)
@@ -39,6 +37,9 @@ log = logging.getLogger('lydian')
 ytdl = yt_dlp.YoutubeDL(media.ytdl_format_options)
 
 ffmpeg_options = media.ffmpeg_options
+
+PYDUB_OUT_EXT = 'mp3'
+"""File format to use for exported audio files."""
 
 class FileAudioSource(PCMVolumeTransformer):
     """Creates an AudioSource using a file."""
@@ -498,21 +499,24 @@ class Voice(commands.Cog):
 
         modified = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}) # pylint: disable=protected-access
         print(self.modified_fname(filepath, for_source=True))
-        modified.export(self.modified_fname(filepath, for_source=True), format='mp3')
+        modified.export(self.modified_fname(filepath, for_source=True), format=PYDUB_OUT_EXT)
 
         # Add a bit of time to compensate for exporting
         start_ms = ((self.audio_seconds_elapsed + 1) / speed) * 1000
         print(self.modified_fname(filepath))
-        modified[start_ms:].export(self.modified_fname(filepath), format='mp3')
+        modified[start_ms:].export(self.modified_fname(filepath), format=PYDUB_OUT_EXT)
 
         msg = await msg.edit(embed=embedq(subtext='Preparing player...', base=msg.embeds[0]))
+        print('set swap to true')
         self.swap_to_modified = True
+
+        print('set audio elapsed')
+        self.audio_seconds_elapsed = start_ms / 1000
+        print('final message')
+        msg = await msg.edit(embed=embedq(f'Speed changed to {speed}x', 'Playing shortly...'))
+
         if self.voice_client.is_playing():
             self.voice_client.stop()
-
-        self.audio_seconds_elapsed = start_ms / 1000
-
-        msg = await msg.edit(embed=embedq(f'Speed changed to {speed}x', 'Playing shortly...'))
 
     @commands.command(aliases=command_aliases('play'))
     @commands.check(is_command_enabled)
@@ -778,7 +782,7 @@ class Voice(commands.Cog):
             raise ValueError(f'{matches[0]} is not a file')
         return str(matches[0])
 
-    def modified_fname(self, filename: str, new_ext: str='mp3', for_source: bool=False) -> str:
+    def modified_fname(self, filename: str, new_ext: str=PYDUB_OUT_EXT, for_source: bool=False) -> str:
         """Puts the given filename through the template used to designate files with effects applied.
         Just simple string concatenation, but its kept in a function to make changing this later easier, if needed.
 
@@ -942,7 +946,7 @@ class Voice(commands.Cog):
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
         specifically to be used as the `after` argument for a player source. Should not be used alone.
-        
+
         """
         log.debug('Player has finished.')
         # Add to play history if it's not the same item as the last one
@@ -951,6 +955,7 @@ class Voice(commands.Cog):
 
         # Swap file for modified one if we're supposed to
         if self.swap_to_modified:
+            print('swapping')
             newfile = self.modified_fname(str(self.player.filepath))
             print(newfile)
             print(not Path(newfile).is_file())
@@ -963,4 +968,5 @@ class Voice(commands.Cog):
                 self.voice_client.play(self.player, after=lambda e: asyncio.run_coroutine_threadsafe(self.handle_player_stop(ctx), self.bot.loop))
         else:
             await self.advance_queue(ctx)
+        print('set swap to false')
         self.swap_to_modified = False

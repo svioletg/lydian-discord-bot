@@ -2,8 +2,8 @@
 
 # Standard imports
 import logging
-import shutil
 import re
+import shutil
 import time
 from inspect import currentframe
 from pathlib import Path
@@ -11,8 +11,8 @@ from sys import stdout
 from typing import Callable, Optional
 
 # External imports
-from arrow import Arrow
 import colorlog
+from arrow import Arrow
 
 # Local imports
 import utils.configuration as cfg
