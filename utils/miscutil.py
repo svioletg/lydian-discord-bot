@@ -1,15 +1,17 @@
 """General-purpose, miscellaneous utility methods."""
 
 # Standard imports
-from inspect import currentframe
 import logging
+import shutil
 import re
 import time
+from inspect import currentframe
 from pathlib import Path
 from sys import stdout
 from typing import Callable, Optional
 
 # External imports
+from arrow import Arrow
 import colorlog
 
 # Local imports
@@ -79,6 +81,8 @@ def create_logger(logger_name: str, logfile: Optional[str | Path]=None) -> loggi
     """Sets up a new logger, using `colorlog` for colored console output and `logging` for file output.
     A file handler is only created if `logfile` has a value.
     """
+    logfile = Path(logfile) if logfile else None
+
     levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
     use_color: bool = not cfg.DISABLE_LOG_COLORS
     new_logger = colorlog.getLogger(logger_name)
@@ -121,6 +125,21 @@ def create_logger(logger_name: str, logfile: Optional[str | Path]=None) -> loggi
     new_logger.addHandler(stdout_handler)
 
     if logfile:
+        if logfile.is_dir():
+            raise ValueError(f'{logfile} is a directory, must be a file')
+        if logfile.exists():
+            # Rename last log file with its timestamp
+            shutil.move(
+                logfile,
+                logfile.with_name(f'{logfile.stem}-{Arrow.fromtimestamp(logfile.stat().st_birthtime).format("YYYY-MM-DD-HH-mm-ss")}.log')
+                )
+            # Remove oldest log file if the maximum is exceeded
+            existing: list[tuple[int, Path]] = [
+                (int(''.join(re.findall(r'(\d{4})-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(\d\d)', f.name)[0])), f)
+                for f in Path().glob('lydian-*-*-*-*.log')
+            ]
+            if len(existing) > cfg.MAX_BACKUP_LOGS:
+                min(existing)[1].unlink()
         file_handler = logging.FileHandler(filename=logfile, encoding='utf-8', mode='w')
         file_handler.setFormatter(log_format_no_color)
         file_handler.setLevel(logging.DEBUG)

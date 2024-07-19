@@ -68,11 +68,14 @@ Developer
 
 Features
 - A "roulette mode" has been added, which if enabled with the `-roulette` command (which will flip the switch by default, or you can explicitly use `-roulette on` or `-roulette off`) will choose a random song to play from the current queue each time a song finishes, rather than going in order like normal
-- "Now playing" messages will now show the track's thumbnail in its embed ([#70](https://github.com/svioletg/viMusBot/issues/70))
+- `-history` command added which will show previously played tracks, up to the amount set by the new `play-history-max` config key (see Other below) ([#1](https://github.com/svioletg/lydian-discord-bot/issues/1), partial)
+    - In a future release, you'll optionally be able to store this history locally and get stats like most played tracks
+- "Now playing" messages will now show the track's thumbnail in its embed ([vMB #70](https://github.com/svioletg/viMusBot/issues/70))
 - Multiple messages are prefixed with relevant emoji to act as status icons
 - `-faq` command added to get the bot's FAQ page
 - `-issues` command added to the get the bot's issues page
 - User configuration will now be checked and validation on startup, to catch surface-level issues and warn of them or exit the script if it would not be able to continue
+- The bot now shows "Listening to [song title]" as its user status
 
 Fixes
 - Using the `stop` console command will now suppress the resulting `CancelledError`
@@ -94,11 +97,13 @@ Other
         - `show-console-logs`, `show-verbose-logs`, and `ignore-logs-from` have all been removed
         - `console-log-level` (boolean) has been added
         - `log-full-tracebacks` (boolean) has been added
+        - `max-backup-logs` (int) has been added
         - `colors`:
             - The color entries for filenames like `bot-py` have been removed, `module` added in their place, all files/modules will be shown as the same color if colored console logs are enabled
 - Changes in `requirements.txt`:
 
 ```diff
++   ADDED: arrow           == 1.3.0
 +   ADDED: colorlog        == 6.8.2*
 + UPDATED: aioconsole      == 0.7.1
 + UPDATED: discord.py      == 2.4.0

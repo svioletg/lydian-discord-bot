@@ -16,13 +16,14 @@ from typing import Callable, Optional, Self, cast
 # External imports
 import requests
 import yt_dlp
-from discord import (Embed, FFmpegPCMAudio, Member,
+from discord import (Activity, ActivityType, Embed, FFmpegPCMAudio, Member,
                      Message, PCMVolumeTransformer, User, VoiceClient,
                      VoiceState)
 from discord.ext import commands
 from pydub import AudioSegment
 
 # Local imports
+from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs.common import (EmojiStr, SilentCancel, command_aliases, edit_or_send,
                          embedq, is_command_enabled, prompt_for_choice)
@@ -199,11 +200,8 @@ class Voice(commands.Cog):
                 return
             timeout_counter: float = 0.0
             while True:
-                await asyncio.sleep(TICK)
-                timeout_counter += TICK
-
-                if self.voice_client is None:
-                    break
+                await asyncio.sleep(1)
+                timeout_counter += 1
 
                 if self.voice_client is None:
                     break
@@ -944,6 +942,7 @@ class Voice(commands.Cog):
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
         specifically to be used as the `after` argument for a player source. Should not be used alone.
+        
         """
         log.debug('Player has finished.')
         # Add to play history if it's not the same item as the last one

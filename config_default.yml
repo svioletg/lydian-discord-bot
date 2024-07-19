@@ -51,7 +51,7 @@ auto-remove:
     - ".webm"
     - ".opus"
 
-# Maximum file size that an be download by yt_dlp, megabytes (MB)
+# Maximum file size that can be download by yt_dlp, megabytes (MB)
 # Adjust as needed depending on your network speed
 maximum-file-size: 50
 
@@ -111,13 +111,16 @@ command-blacklist:
 logging-options:
     # What level of logs to output to the console; valid options are "DEBUG" (lowest), "INFO", "WARNING", "ERROR", and "CRITICAL" (highest)
     # Only logs greater than or equal to this level will be displayed,
-    # others will not show up in the console but are still logged to lydian.log 
-    # For more about this and what each level represents, see: https://github.com/svioletg/lydian-discord-bot/blob/dev/README.md#reading-logs
+    # others will not show up in the console but are still logged to vimusbot.log 
+    # For more about this and what each level represents, see: https://github.com/svioletg/viMusBot/blob/dev/README.md#reading-logs
     console-log-level: "INFO"
     # Whether to print out full error tracebacks to the console
     # Tracebacks are always saved to the log file for debugging usage,
-    # but they can take up lots of space in the console, so you can hide them if you wish.
+    # but they can take up lots of space in the console, so you can hide them if you wish
     log-full-tracebacks: no
+    # Maximum number of old log files to keep. Every time the bot starts, any existing `lydian.log` file
+    # is renamed with the date it was created (e.g. `lydian-2024-07-25.log`) and kept in case you need to reference it later
+    max-backup-logs: 5
     # Choose your preferred log colors (these are only used in console output, log files will have no color codes)
     colors:
         # Run "colors.py" to see a list of choices, add "on [color]" for a background
