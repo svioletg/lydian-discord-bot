@@ -97,6 +97,7 @@ Other
         - `show-console-logs`, `show-verbose-logs`, and `ignore-logs-from` have all been removed
         - `console-log-level` (boolean) has been added
         - `log-full-tracebacks` (boolean) has been added
+        - `max-backup-logs` (int) has been added
         - `colors`:
             - The color entries for filenames like `bot-py` have been removed, `module` added in their place, all files/modules will be shown as the same color if colored console logs are enabled
 - Changes in `requirements.txt`:

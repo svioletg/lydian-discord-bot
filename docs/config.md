@@ -178,6 +178,19 @@ logging-options:
     log-full-tracebacks: false
 ```
 
+### `logging-options` → `max-backup-logs`
+
+> Maximum number of old log files to keep. Every time the bot starts, any existing `lydian.log` file is renamed with the date it was created (e.g. `lydian-2024-07-25.log`) and kept in case you need to reference it later. The oldest file will be deleted to make room for new ones.
+
+**Valid options:** any positive number
+
+**Example:**
+
+```yaml
+logging-options:
+    max-backup-logs: 5
+```
+
 ### `logging-options` → `colors`
 
 > Allows you to specify colors for certain types of keywords within logs. Also contains the `no-color` key which will disable colored logging altogether.

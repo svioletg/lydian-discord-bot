@@ -6,7 +6,7 @@ import logging
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal, Optional
 
 # External imports
 import yaml
@@ -44,13 +44,13 @@ def get_default(key: str) -> Any:
     """Returns the default value for a given key."""
     return CONFIG_DEFAULT_DICT.get(key)
 
-def check_type(key: str, check) -> Any:
+def check_type(key: str, correct_type: type) -> Any:
     """Gets a config key and checks if the type is correct. Raises an error if not, returns the value if so."""
     value = get(key)
-    if isinstance(value, check):
+    if isinstance(value, correct_type):
         return value
     else:
-        raise TypeError(f'Error in configuration: Expected {check} for key "{key}"')
+        raise TypeError(f'Error in configuration: Expected {correct_type} for key "{key}"')
 
 def get_full(config_type: Literal['user', 'default']) -> benedict:
     """Returns the full config benedict object."""
@@ -136,6 +136,7 @@ check_type('logging-options.colors', dict)
 LOG_COLORS_PATH    : str            = 'logging-options.colors'
 DISABLE_LOG_COLORS : bool           = check_type('logging-options.colors.no-color', bool)
 LOG_TRACEBACKS     : bool           = check_type('logging-options.log-full-tracebacks', bool)
+MAX_BACKUP_LOGS    : int            = check_type('logging-options.max-backup-logs', int)
 
 SHOW_USERS_IN_QUEUE  : bool = check_type('show-users-in-queue', bool)
 MAX_HISTORY_LENGTH   : int  = max(check_type('play-history-max', int), 20)
