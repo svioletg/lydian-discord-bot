@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
-from typing import Callable, Optional, Self, cast
+from typing import Any, Callable, Optional, Self, cast
 
 # External imports
 import requests
@@ -41,13 +41,26 @@ ffmpeg_options = media.ffmpeg_options
 PYDUB_OUT_EXT = 'mp3'
 """File format to use for exported audio files."""
 
+AUDIO_READ_RATE_MS: int = 20
+"""Number of milliseconds being read on every `read()` call on an audio source.
+
+This is only a constant in case `discord.py` changes its reading rate in the future, it shouldn't be changed otherwise.
+"""
+
 class FileAudioSource(PCMVolumeTransformer):
     """Creates an AudioSource using a file."""
     def __init__(self, source, *, filepath: Path, volume: float=0.5):
         super().__init__(source, volume)
+        self.elapsed_ms: int = 0
 
         self.filepath = filepath
         self.file_ext = filepath.suffix.strip('.')
+
+    def read(self, *args, **kwargs) -> bytes:
+        ret = super().read(*args, **kwargs)
+        if ret:
+            self.elapsed_ms += AUDIO_READ_RATE_MS
+        return ret
 
     @classmethod
     async def from_path(cls, path: str):
@@ -58,6 +71,7 @@ class YTDLSource(PCMVolumeTransformer):
     """Creates an AudioSource using yt_dlp."""
     def __init__(self, source, *, data, filepath: Path, volume: float=0.5):
         super().__init__(source, volume)
+        self.elapsed_ms: int = 0
 
         self.data = data
         self.filepath = filepath
@@ -67,6 +81,12 @@ class YTDLSource(PCMVolumeTransformer):
         self.url = data.get('url')
         self.ID = data.get('id') # pylint: disable=invalid-name
         self.src = data.get('extractor')
+
+    def read(self, *args, **kwargs) -> bytes:
+        ret = super().read(*args, **kwargs)
+        if ret:
+            self.elapsed_ms += AUDIO_READ_RATE_MS
+        return ret
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False) -> Self:
@@ -115,12 +135,12 @@ class MediaQueue(list[QueueItem]):
 
     def append(self, item: QueueItem):
         if not isinstance(item, QueueItem):
-            raise ValueError('Attempt to append a non-QueueItem to a MediaQueue.')
+            raise TypeError('Attempt to append a non-QueueItem to a MediaQueue')
         super().append(item)
 
     def extend(self, item: list[QueueItem]):
         if any(not isinstance(i, QueueItem) for i in item):
-            raise ValueError('Attempt to append a non-QueueItem to a MediaQueue.')
+            raise TypeError('Attempt to extend a MediaQueue with non-QueueItem objects')
         super().extend(item)
 
     def enqueue(self, to_queue: QueueItem | list[QueueItem]) -> int | tuple[int, int]:
@@ -134,6 +154,7 @@ class MediaQueue(list[QueueItem]):
         if isinstance(to_queue, QueueItem):
             self.append(to_queue)
             return start
+        raise TypeError('enqueue() can only take a QueueItem or a list of QueueItems as its argument')
 
 class AlbumLimitError(Exception):
     """Raised when a playlist exceeds its maximum length, set by user configuration."""
@@ -161,27 +182,42 @@ async def author_in_vc(ctx: commands.Context) -> bool:
     else:
         return True
 
+@dataclass
+class TrackEffects:
+    """Stores which effects are applied to the current track, and their values."""
+    speed: float = 1.0
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        setattr(self, key, value)
+
 class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
     def __init__(self, bot: commands.bot.Bot):
         self.bot = bot
         self.voice_client: Optional[VoiceClient] = None
         self.media_queue = MediaQueue()
-        self.play_history: deque[Optional[QueueItem]] = deque([None, None, None, None, None], maxlen=5)
+        self.play_history: deque[Optional[QueueItem]] = deque([None] * cfg.MAX_HISTORY_LENGTH, maxlen=cfg.MAX_HISTORY_LENGTH)
         self.current_item: Optional[QueueItem] = None
         self.previous_item: Optional[QueueItem] = None
         self.player: Optional[YTDLSource | FileAudioSource] = None
+        self.active_effects = TrackEffects()
 
         self.files_to_del: list[Path] = []
+        """Files marked for deletion upon the next queue advancement."""
 
         self.advance_lock: bool = False
+        """Lock to prevent race condition issues when advancing the queue."""
         self.after_advance_queue: Optional[Callable] = None
+        """One-time callable that can be set to run after every task in `advance_queue()` has finished. Gets reset to `None` after running."""
 
         self.skip_votes_placed: list[Member] = []
 
+        self.audio_seconds_elapsed: float = 0.0
         self.paused_at: float = 0.0
         self.pause_duration: float = 0.0
-        self.audio_seconds_elapsed: float = 0.0
         self.swap_to_modified: bool = False
         """Needs to be set `True` if we want to swap the current audio file to its modified version,
         and prevent the queue from normally advancing."""
@@ -192,7 +228,8 @@ class Voice(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: Member, before: VoiceState, after: VoiceState): # pylint: disable=unused-argument
         """Listener for the voice state update event. Currently handles inactivity timeouts and tracks how long audio has been playing."""
-        TICK: float = 0.5
+        COUNTER_RATE_SECS: float = 0.5 # pylint: disable=invalid-name
+        COUNTER_RATE_MS: int = int(COUNTER_RATE_SECS * 1000) # pylint: disable=invalid-name
         if not (member.id == self.bot.user.id):
             return
         if before.channel is None:
@@ -200,16 +237,27 @@ class Voice(commands.Cog):
             if cfg.INACTIVITY_TIMEOUT_MINS == 0:
                 return
             timeout_counter: float = 0.0
+            last_elapsed_read: int = 0
             while True:
-                await asyncio.sleep(1)
-                timeout_counter += 1
+                await asyncio.sleep(COUNTER_RATE_SECS)
+                timeout_counter += COUNTER_RATE_SECS
+                if self.player:
+                    self.audio_seconds_elapsed += ((self.player.elapsed_ms - last_elapsed_read) * self.active_effects.speed) / 1000
+                    last_elapsed_read = self.player.elapsed_ms
+                    print(
+                        AUDIO_READ_RATE_MS / 1000,
+                        (AUDIO_READ_RATE_MS / 1000) * self.active_effects.speed,
+                        ((AUDIO_READ_RATE_MS / 1000) * self.active_effects.speed) * COUNTER_RATE_SECS,
+                        self.audio_seconds_elapsed,
+                        seconds_to_hms(self.audio_seconds_elapsed),
+                        sep=' || '
+                    )
 
                 if self.voice_client is None:
                     break
 
                 if self.voice_client.is_playing() and not self.voice_client.is_paused():
                     timeout_counter = 0.0
-                    self.audio_seconds_elapsed += TICK
 
                 if timeout_counter == cfg.INACTIVITY_TIMEOUT_MINS * 60:
                     log.info('Leaving voice due to inactivity...')
@@ -485,38 +533,39 @@ class Voice(commands.Cog):
 
     @commands.command(aliases=command_aliases('speed'))
     @commands.check(is_command_enabled)
-    async def spd(self, ctx: commands.Context, speed: float):
-        """Apply changes and effects to the currently playing audio."""
-        file_ext = self.player.file_ext
-        filepath = self.original_fname(str(self.player.filepath))
-        print(filepath, file_ext)
+    async def speed(self, ctx: commands.Context, speed_mult: float): # pylint: disable=unused-argument
+        """Change the speed of the currently playing audio.
 
-        msg = await ctx.send(embed=embedq('Applying effects...', 'Getting audio segment...'))
-        sound = AudioSegment.from_file(filepath, format=file_ext)
-        new_rate = int(sound.frame_rate * speed)
+        @speed_mult: The speed multiplier to apply; `2` for twice as fast, `0.5` for half as fast, etc.
+        """
+        export_time = time.perf_counter()
 
-        msg = await msg.edit(embed=embedq(subtext='Exporting...', base=msg.embeds[0]))
+        original_file = Path(re.findall(r"(?:.*mod@\d+-|)(.*$)", str(self.player.filepath))[0])
 
-        modified = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}) # pylint: disable=protected-access
-        print(self.modified_fname(filepath, for_source=True))
-        modified.export(self.modified_fname(filepath, for_source=True), format=PYDUB_OUT_EXT)
+        log.debug('Making new modified audio segment...')
+        original_sound = AudioSegment.from_file(original_file, format=original_file.suffix.strip('.'))
+        new_speed_rate = int(original_sound.frame_rate * speed_mult)
+        new_sound_full = original_sound._spawn(original_sound.raw_data, overrides={'frame_rate': new_speed_rate}) # pylint: disable=protected-access
+        new_sound_full.export(
+            new_name := original_file.with_name(f'mod@{int(time.time())}-{original_file.stem}.{PYDUB_OUT_EXT}'),
+            format=PYDUB_OUT_EXT
+        )
 
-        # Add a bit of time to compensate for exporting
-        start_ms = ((self.audio_seconds_elapsed + 1) / speed) * 1000
-        print(self.modified_fname(filepath))
-        modified[start_ms:].export(self.modified_fname(filepath), format=PYDUB_OUT_EXT)
+        log.debug('Cutting segment to estimated starting time...')
+        export_time -= time.perf_counter()
+        start_ms = max(0, ((self.audio_seconds_elapsed + export_time + 1) / speed_mult) * 1000)
+        new_sound_cut = new_sound_full[start_ms:]
+        new_sound_cut.export(cut_name := new_name.with_name(f'cut-{new_name.stem}.{PYDUB_OUT_EXT}'), format=PYDUB_OUT_EXT)
 
-        msg = await msg.edit(embed=embedq(subtext='Preparing player...', base=msg.embeds[0]))
-        print('set swap to true')
-        self.swap_to_modified = True
-
-        print('set audio elapsed')
-        self.audio_seconds_elapsed = start_ms / 1000
-        print('final message')
-        msg = await msg.edit(embed=embedq(f'Speed changed to {speed}x', 'Playing shortly...'))
-
+        log.debug('About to stop player, setting swap check to True...')
         if self.voice_client.is_playing():
+            self.swap_to_modified = True
+            self.player.filepath = cut_name
             self.voice_client.stop()
+            self.active_effects.speed = speed_mult
+        else:
+            log.debug('Voice client was not playing; the command will exit without effect, and the created files will be marked for removal.')
+            self.files_to_del += [new_name, cut_name]
 
     @commands.command(aliases=command_aliases('play'))
     @commands.check(is_command_enabled)
@@ -811,12 +860,13 @@ class Voice(commands.Cog):
         elapsed_hms: str = cast(str, seconds_to_hms(self.audio_seconds_elapsed))
         length_hms: Optional[str] = item.info.length_hms(format_zero=False)
         submitter_text: str = self.get_queued_by_text(cast(Member, item.queued_by))
+        speed_text: str = f'\n{EmojiStr.fastforward} Playing at {self.active_effects.speed}x speed' if self.active_effects.speed != 1.0 else ''
         loop_icon: str = self.get_loop_icon()
 
         timestamp: str = f'[{elapsed_hms} / {length_hms or '?'}]' if show_elapsed else f'[{length_hms}]' if length_hms else ''
 
         embed = Embed(title=f'{loop_icon}{EmojiStr.play} Now playing: {item.info.title} {timestamp}',
-            description=f'Link: {item.info.url}{submitter_text}', color=cfg.EMBED_COLOR).set_thumbnail(url=item.info.thumbnail)
+            description=f'Link: {item.info.url}{submitter_text}{speed_text}', color=cfg.EMBED_COLOR).set_thumbnail(url=item.info.thumbnail)
         return embed
 
     async def advance_queue(self, ctx: commands.Context, skipping: bool=False):
@@ -845,6 +895,7 @@ class Voice(commands.Cog):
                         except FileNotFoundError:
                             log.debug('File not found: %s', file)
                 self.player = None
+                self.active_effects = TrackEffects()
 
                 self.previous_item = self.current_item
                 self.skip_votes_placed.clear()
@@ -878,8 +929,6 @@ class Voice(commands.Cog):
 
         def skip_after_return() -> None:
             self.after_advance_queue = lambda: asyncio.run_coroutine_threadsafe(self.advance_queue(ctx, skipping=True), self.bot.loop)
-
-        self.audio_time_elapsed = 0.0
 
         if item != self.previous_item:
             if self.now_playing_msg:
@@ -946,7 +995,6 @@ class Voice(commands.Cog):
     async def handle_player_stop(self, ctx):
         """Normally just directs to `advance_queue()`, but handles some small additional logic
         specifically to be used as the `after` argument for a player source. Should not be used alone.
-
         """
         log.debug('Player has finished.')
         # Add to play history if it's not the same item as the last one
@@ -955,18 +1003,16 @@ class Voice(commands.Cog):
 
         # Swap file for modified one if we're supposed to
         if self.swap_to_modified:
-            print('swapping')
-            newfile = self.modified_fname(str(self.player.filepath))
-            print(newfile)
-            print(not Path(newfile).is_file())
-            if not Path(newfile).is_file():
-                log.error('No file at %s', newfile)
+            print('swapping to', self.player.filepath)
+            if not Path(self.player.filepath).is_file():
+                log.error('No file at %s', self.player.filepath)
                 log.error('Going to advance queue instead.')
                 await self.advance_queue(ctx)
             else:
-                self.player = await FileAudioSource.from_path(newfile)
+                self.player = await FileAudioSource.from_path(str(self.player.filepath))
                 self.voice_client.play(self.player, after=lambda e: asyncio.run_coroutine_threadsafe(self.handle_player_stop(ctx), self.bot.loop))
         else:
+            self.audio_seconds_elapsed = 0.0
             await self.advance_queue(ctx)
         print('set swap to false')
         self.swap_to_modified = False
