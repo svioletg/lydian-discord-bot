@@ -822,10 +822,10 @@ class Voice(commands.Cog):
                             '\n'.join([EmojiStr.num[n + 1] + f' **{track.title}**\n*{track.artist}*' for n, track in enumerate(matches)])))
                         choice = await prompt_for_choice(self.bot, ctx,
                             prompt_msg=prompt_msg, choice_nums=len(matches), result_msg=self.queue_msg)
-                        if isinstance(choice, int) and choice != 0:
+                        if choice != 0:
                             item.info = matches[choice - 1]
                         else:
-                            await self.advance_queue(ctx)
+                            skip_after_return()
                             return
                 if isinstance(matches, media.TrackInfo):
                     item.info = matches
@@ -836,6 +836,15 @@ class Voice(commands.Cog):
                 if await prompt_for_choice(self.bot, ctx, prompt_msg=prompt_msg, yesno=True) == 0:
                     skip_after_return()
                     return
+
+        prompt_msg = await ctx.send(embed=embedq(f'Play "{item.info.title}"?'))
+        choice = await prompt_for_choice(self.bot, ctx,
+            prompt_msg=prompt_msg, yesno=True)
+        if choice != 0:
+            print(item.info)
+        else:
+            skip_after_return()
+            return
 
         try:
             log.debug('Creating YTDLSource...')
