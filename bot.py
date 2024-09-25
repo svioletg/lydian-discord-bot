@@ -24,10 +24,10 @@ from discord.ext import commands
 from pretty_help import PrettyHelp
 
 # Local imports
-from cogs.presence import BotPresence
 import utils.configuration as cfg
 from cogs import cog_general, cog_voice
 from cogs.common import EmojiStr, SilentCancel, embedq
+from cogs.presence import BotPresence
 from utils import updating
 from utils.miscutil import create_logger
 from utils.palette import Palette

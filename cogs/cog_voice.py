@@ -102,7 +102,6 @@ class YTDLSource(PCMVolumeTransformer):
             raise e
 
         filename = data['url'] if stream else ytdl.prepare_filename(data) # type: ignore
-        print(Path(filename).suffix)
         src = filename.split('-#-')[0] # pylint: disable=unused-variable
         ID = filename.split('-#-')[1] # pylint: disable=unused-variable, invalid-name
         return cls(FFmpegPCMAudio(filename, **ffmpeg_options), data=data, filepath=Path(filename)) # type: ignore
@@ -197,7 +196,7 @@ class Voice(commands.Cog):
     """Handles voice and music-related tasks."""
     def __init__(self, bot: commands.bot.Bot):
         self.bot = bot
-        self.voice_client: Optional[VoiceClient] = None
+        self._voice_client: VoiceClient | None = None
         self.media_queue = MediaQueue()
         self.play_history: deque[Optional[QueueItem]] = deque([None] * cfg.MAX_HISTORY_LENGTH, maxlen=cfg.MAX_HISTORY_LENGTH)
         self.current_item: Optional[QueueItem] = None
@@ -225,56 +224,59 @@ class Voice(commands.Cog):
         self.now_playing_msg: Optional[Message] = None
         self.queue_msg: Optional[Message] = None
 
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member: Member, before: VoiceState, after: VoiceState): # pylint: disable=unused-argument
-        """Listener for the voice state update event. Currently handles inactivity timeouts and tracks how long audio has been playing."""
-        COUNTER_RATE_SECS: float = 0.5 # pylint: disable=invalid-name
-        COUNTER_RATE_MS: int = int(COUNTER_RATE_SECS * 1000) # pylint: disable=invalid-name
-        if not (member.id == self.bot.user.id):
+    @property
+    def voice_client(self) -> VoiceClient | None:
+        return self._voice_client
+
+    @voice_client.setter
+    def voice_client(self, value):
+        print(value)
+        print('SLAY THE MIGHTY SET')
+        self._voice_client = value
+        asyncio.run_coroutine_threadsafe(self.start_voice_client_timeout_loop(), self.bot.loop)
+
+    async def start_voice_client_timeout_loop(self) -> None:
+        print('UPDATE')
+        counter_rate_secs: float = 0.5
+        # Disconnect after set amount of inactivity
+        if cfg.INACTIVITY_TIMEOUT_MINS == 0:
             return
-        if before.channel is None:
-            # Disconnect after set amount of inactivity
-            if cfg.INACTIVITY_TIMEOUT_MINS == 0:
-                return
-            timeout_counter: float = 0.0
-            last_elapsed_read: int = 0
-            while True:
-                await asyncio.sleep(COUNTER_RATE_SECS)
-                timeout_counter += COUNTER_RATE_SECS
-                if self.player:
-                    self.audio_seconds_elapsed += ((self.player.elapsed_ms - last_elapsed_read) * self.active_effects.speed) / 1000
-                    last_elapsed_read = self.player.elapsed_ms
-                    print(
-                        AUDIO_READ_RATE_MS / 1000,
-                        (AUDIO_READ_RATE_MS / 1000) * self.active_effects.speed,
-                        ((AUDIO_READ_RATE_MS / 1000) * self.active_effects.speed) * COUNTER_RATE_SECS,
-                        self.audio_seconds_elapsed,
-                        seconds_to_hms(self.audio_seconds_elapsed),
-                        sep=' || '
-                    )
+        timeout_counter: float = 0.0
+        while True:
+            print('UPDATE 2')
+            print(self.voice_client)
+            print('gonna sleep')
+            await asyncio.sleep(counter_rate_secs)
+            print('slept')
+            timeout_counter += counter_rate_secs
+            self.audio_seconds_elapsed = self.player.elapsed_ms
+            print('voice-update')
+            print(self.audio_seconds_elapsed, self.player.elapsed_ms)
+            print('...')
 
-                if self.voice_client is None:
-                    break
+            if self.voice_client is None:
+                print('breaking')
+                break
 
-                if self.voice_client.is_playing() and not self.voice_client.is_paused():
-                    timeout_counter = 0.0
+            if self.voice_client.is_playing() and not self.voice_client.is_paused():
+                timeout_counter = 0.0
 
-                if timeout_counter == cfg.INACTIVITY_TIMEOUT_MINS * 60:
-                    log.info('Leaving voice due to inactivity...')
-                    await self.voice_client.disconnect()
+            if timeout_counter == cfg.INACTIVITY_TIMEOUT_MINS * 60:
+                log.info('Leaving voice due to inactivity...')
+                await self.voice_client.disconnect()
+            if not self.voice_client.is_connected():
+                log.debug('Voice doesn\'t look connected, waiting three seconds...')
+                await asyncio.sleep(3)
                 if not self.voice_client.is_connected():
-                    log.debug('Voice doesn\'t look connected, waiting three seconds...')
-                    await asyncio.sleep(3)
-                    if not self.voice_client.is_connected():
-                        log.debug('Still disconnected. Discarding voice client reference...')
-                        # Delay discarding this reference until we're sure that we actually disconnected
-                        # Sometimes a brief network hiccup can be detected as not being connected to voice,
-                        # even though the bot is still present in Discord...
-                        # ...in which case, if we discard our reference to it too soon, everything voice-related breaks
-                        self.voice_client = None
-                        break
-                    else:
-                        log.debug('Voice looks connected again. Continuing as normal...')
+                    log.debug('Still disconnected. Discarding voice client reference...')
+                    # Delay discarding this reference until we're sure that we actually disconnected
+                    # Sometimes a brief network hiccup can be detected as not being connected to voice,
+                    # even though the bot is still present in Discord...
+                    # ...in which case, if we discard our reference to it too soon, everything voice-related breaks
+                    self.voice_client = None
+                    break
+                else:
+                    log.debug('Voice looks connected again. Continuing as normal...')
 
 
     #region COMMANDS
@@ -538,6 +540,8 @@ class Voice(commands.Cog):
 
         @speed_mult: The speed multiplier to apply; `2` for twice as fast, `0.5` for half as fast, etc.
         """
+        progress_msg = await ctx.send(embed=embedq('Working on it...'))
+
         export_time = time.perf_counter()
 
         original_file = Path(re.findall(r"(?:.*mod@\d+-|)(.*$)", str(self.player.filepath))[0])
@@ -566,6 +570,8 @@ class Voice(commands.Cog):
         else:
             log.debug('Voice client was not playing; the command will exit without effect, and the created files will be marked for removal.')
             self.files_to_del += [new_name, cut_name]
+
+        await progress_msg.delete()
 
     @commands.command(aliases=command_aliases('play'))
     @commands.check(is_command_enabled)
@@ -810,7 +816,9 @@ class Voice(commands.Cog):
         if (not self.voice_client) and author.voice:
             if ctx.command.name in auto_connect_commands:
                 log.info('Joining voice channel: %s', author.voice.channel.name)
+                print('ONE')
                 self.voice_client = await author.voice.channel.connect()
+                print('TWO')
             else:
                 # No reason to auto-connect for something like -leave, -skip, etc.
                 await ctx.send(embed=embedq('No voice connection found.',
@@ -856,6 +864,7 @@ class Voice(commands.Cog):
 
         @show_elapsed: Show the elapsed time alongside the track length, i.e. "1:02 / 2:56"
         """
+        print(self.player.elapsed_ms, self.audio_seconds_elapsed)
         item = cast(QueueItem, self.current_item)
         elapsed_hms: str = cast(str, seconds_to_hms(self.audio_seconds_elapsed))
         length_hms: Optional[str] = item.info.length_hms(format_zero=False)
