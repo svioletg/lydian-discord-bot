@@ -25,6 +25,13 @@ configured prefix accordingly.
 > **Breaking changes**
 > - The debug console command `read` has been renamed to `eval`
 
+- YouTube text search is now supported
+  - Configure how many results to choose from are shown with the `max_search_results` config key
+- Config key `media_filter.allowed_urls` is now `media_filter.allowed_queries`
+- Tracks can now be looped via the `-loop` command
+- You can now have the bot prompt for confirmation when using `-remove` by setting the
+  `confirm_on_remove` config key to `true`
+
 ### Added
 
 - Added bot command `-loop` (method `cogs.voice.VoiceCog.toggle_loop()`) (#34)
@@ -65,6 +72,7 @@ configured prefix accordingly.
 
 ### Changed
 
+- Renamed config key `media_filter.allowed_queries`
 - Renamed console command `debug read` to `debug eval`
 - Renamed attribute `config.MediaFilterConfig.allowed_urls` to `.allowed_queries`
 - Renamed method `console.LydianConsole.debug_read()` to `.debug_eval()`
