@@ -18,7 +18,7 @@ paths. `lydian` does not contain any modules named `tools` or `tests`, to avoid 
 Bot commands are referred to here using the default prefix of hyphen (`-`), replace with your
 configured prefix accordingly.
 
-## [Unreleased]
+## [0.10.0] - 2026-07-28
 
 ### Overview
 
